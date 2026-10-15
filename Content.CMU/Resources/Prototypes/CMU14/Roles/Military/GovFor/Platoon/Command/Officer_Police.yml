@@ -59,8 +59,9 @@
     # - type: JobPrefix
     #   prefix: au14-job-prefix-govforpolicechiefCMBCIU
   requirements:
-  - !type:OverallPlaytimeRequirement
-    time: 18000 # 5 hours
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsSecurity
+    time: 36000 # 10 hours
   - !type:AgeRequirement
     requiredAge: 30
   - !type:TraitsRequirement
@@ -75,6 +76,9 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:
@@ -198,7 +202,10 @@
   parent: AU14JobOfficerMPBase
   id: AU14JobGOVFOROfficerMPUPP
   roundForce: UPP
-  requirements: []
+  requirements:
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsSecurity
+    time: 36000 # 10 hours
   name: Chief MP
   spawnMenuRoleName: Chief MP (UPP)
   ranks:
@@ -212,7 +219,10 @@
   parent: AU14JobOfficerMPBase
   id: AU14JobGOVFOROfficerMPWYPMC
   roundForce: WYPMC
-  requirements: []
+  requirements:
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsSecurity
+    time: 36000 # 10 hours
   name: PMC Chief of Security
   spawnMenuRoleName: Chief MP (WYPMC)
   ranks:

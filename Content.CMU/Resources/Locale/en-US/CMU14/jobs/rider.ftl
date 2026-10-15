@@ -29,6 +29,8 @@ rider-host-latched-wrap = *"Something is inside you. It whispers. Doctors could 
 
 rider-no-host = You have no host.
 rider-grip-low = Your grip is too weak for that.
+rider-grip-name = Grip
+rider-grip-desc = How tightly the grip. Abilities spend, resistance drains.
 
 rider-whisper-wrap = Something whispers: { $text }
 rider-whisper-echo = You whisper to your host: { $text }
@@ -41,6 +43,7 @@ rider-mute-cast = You clamp your host's throat shut.
 rider-mute-host = Your throat seizes. No sound comes out.
 rider-mute-blocked = Your throat refuses to make a sound.
 rider-mute-end = The clamp inside your throat lets go.
+rider-mute-release = You loosen your hold on your host's throat.
 
 rider-seize-host = Your body moves on its own. You watch from somewhere behind your own eyes.
 rider-seize-end-host = Control floods back. Your hands are yours again - for now.

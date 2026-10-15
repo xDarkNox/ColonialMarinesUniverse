@@ -1,11 +1,15 @@
+using System.Globalization;
+using Content.Server.CMU14.Hearing;
 using Content.Server.CMU14.Radio;
 using Content.Server._RMC14.Marines.Roles.Ranks;
 using Content.Server.Chat.Systems;
 using Content.Server.Radio.EntitySystems;
 using Content.Shared.CMU14.CCVar;
 using Content.Shared.CMU14.Callsigns;
+using Content.Shared.CMU14.Hearing;
 using Content.Shared.CMU14.Radio;
 using Content.Shared.CMU14.Threats.Mobs.CLF;
+using Content.Shared._RMC14.Deafness;
 using Content.Shared._RMC14.Marines;
 using Content.Shared._RMC14.Marines.Squads;
 using Content.Shared._RMC14.Tracker.SquadLeader;
@@ -31,6 +35,7 @@ public sealed partial class AU14CallsignSystem : EntitySystem
     [Dependency] private IGameTiming _timing = default!;
     [Dependency] private IConfigurationManager _config = default!;
     [Dependency] private AU14CommsToggleSystem _comms = default!;
+    [Dependency] private CMUCombatHearingSystem _combatHearing = default!;
 
     private static readonly Dictionary<string, string> DefaultCommandWords = new()
     {
@@ -59,6 +64,11 @@ public sealed partial class AU14CallsignSystem : EntitySystem
     private readonly Dictionary<(string Faction, string Category), string> _categoryWords = new();
 
     private readonly List<(EntityUid Mob, LocId Prefix, LocId? Additional, GameTick Tick)> _prefixRestores = new();
+
+    // Scratch collections are rebuilt for every assignment, with no events raised
+    // between filling them and selecting a suffix.
+    private readonly HashSet<int> _takenNumbers = new();
+    private readonly HashSet<string> _takenSuffixes = new(StringComparer.OrdinalIgnoreCase);
 
     private bool _commsEnabled;
 
@@ -127,6 +137,8 @@ public sealed partial class AU14CallsignSystem : EntitySystem
         _groups.Clear();
         _categoryWords.Clear();
         _prefixRestores.Clear();
+        _takenNumbers.Clear();
+        _takenSuffixes.Clear();
     }
 
     private void OnCLFMemberStartup(Entity<CLFMemberComponent> ent, ref ComponentStartup args)
@@ -149,6 +161,9 @@ public sealed partial class AU14CallsignSystem : EntitySystem
 
     private void OnHeadsetExamined(Entity<HeadsetComponent> ent, ref ExaminedEvent args)
     {
+        if (!HasComp<RMCEarProtectionComponent>(ent) && !HasComp<CMUCombatEarProtectionComponent>(ent))
+            _combatHearing.PushProtectionExamine(args);
+
         if (!_commsEnabled ||
             !TryComp(args.Examiner, out AU14CallsignComponent? callsign) ||
             string.IsNullOrEmpty(callsign.Callsign))
@@ -341,29 +356,94 @@ public sealed partial class AU14CallsignSystem : EntitySystem
         return Name(squad).ToUpperInvariant();
     }
 
-    private string NextFreeNumber(string faction, EntityUid? squad, string? group, string? category, int fireteam, EntityUid exclude)
+    internal string NextFreeNumber(string faction, EntityUid? squad, string? group, string? category, int fireteam, EntityUid exclude)
     {
+        _takenNumbers.Clear();
+        var prefix = $"{fireteam}-";
+        var query = EntityQueryEnumerator<AU14CallsignComponent>();
+        while (query.MoveNext(out var uid, out var callsign))
+        {
+            if (uid == exclude || !SharesElement(callsign, faction, squad, group, category)
+                || !callsign.Suffix.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var number = callsign.Suffix.AsSpan(prefix.Length);
+            if (number.IsEmpty || number[0] < '1' || number[0] > '9')
+                continue;
+
+            // Parsing alone can accept trailing NULs. Only the exact decimal
+            // representation generated for a candidate occupies its number.
+            var asciiDigits = true;
+            for (var i = 1; i < number.Length; i++)
+            {
+                if (char.IsAsciiDigit(number[i]))
+                    continue;
+
+                asciiDigits = false;
+                break;
+            }
+
+            if (!asciiDigits || !int.TryParse(number, NumberStyles.None,
+                    CultureInfo.InvariantCulture, out var ordinal))
+            {
+                continue;
+            }
+
+            _takenNumbers.Add(ordinal);
+        }
+
         for (var n = 1;; n++)
         {
-            var candidate = $"{fireteam}-{n}";
-
-            if (!SuffixTaken(faction, squad, group, category, candidate, exclude))
-                return candidate;
+            if (!_takenNumbers.Contains(n))
+                return $"{fireteam}-{n}";
         }
     }
 
-    private string MakeUniqueSuffix(string faction, EntityUid? squad, string? group, string? category, string wanted, EntityUid exclude)
+    internal string MakeUniqueSuffix(string faction, EntityUid? squad, string? group, string? category, string wanted, EntityUid exclude)
     {
-        if (!SuffixTaken(faction, squad, group, category, wanted, exclude))
+        var taken = CollectTakenSuffixes(faction, squad, group, category, exclude);
+        if (!taken.Contains(wanted))
             return wanted;
 
         for (var n = 2;; n++)
         {
             var candidate = $"{wanted} {n}";
 
-            if (!SuffixTaken(faction, squad, group, category, candidate, exclude))
+            if (!taken.Contains(candidate))
                 return candidate;
         }
+    }
+
+    private HashSet<string> CollectTakenSuffixes(string faction, EntityUid? squad, string? group, string? category, EntityUid exclude)
+    {
+        _takenSuffixes.Clear();
+        var query = EntityQueryEnumerator<AU14CallsignComponent>();
+        while (query.MoveNext(out var uid, out var callsign))
+        {
+            if (uid != exclude && SharesElement(callsign, faction, squad, group, category))
+                _takenSuffixes.Add(callsign.Suffix);
+        }
+
+        return _takenSuffixes;
+    }
+
+    private static bool SharesElement(AU14CallsignComponent other, string faction, EntityUid? squad, string? group, string? category)
+    {
+        if (other.Faction != faction ||
+            !string.Equals(other.Group, group, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (group == null &&
+            !string.Equals(other.Category, category, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return group != null || category != null || other.Squad == squad;
     }
 
     // suffixes are unique within their element: a custom group when set, then the
@@ -377,19 +457,7 @@ public sealed partial class AU14CallsignSystem : EntitySystem
             if (uid == exclude)
                 continue;
 
-            if (other.Faction != faction ||
-                !string.Equals(other.Group, group, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (group == null &&
-                !string.Equals(other.Category, category, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (group == null && category == null && other.Squad != squad)
+            if (!SharesElement(other, faction, squad, group, category))
                 continue;
 
             if (string.Equals(other.Suffix, suffix, StringComparison.OrdinalIgnoreCase))

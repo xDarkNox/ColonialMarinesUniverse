@@ -46,6 +46,7 @@
     RMC:
     - type: Skills
       skills:
+        CMUSkillAircrew: 1
         RMCSkillFirearms: 2
         RMCSkillFireman: 1
         RMCSkillIntel: 1
@@ -60,6 +61,7 @@
     UPP:
     - type: Skills
       skills:
+        CMUSkillAircrew: 1
         RMCSkillFirearms: 2
         RMCSkillFireman: 1
         RMCSkillIntel: 1
@@ -76,6 +78,7 @@
     WYPMC:
     - type: Skills
       skills:
+        CMUSkillAircrew: 1
         RMCSkillFirearms: 2
         RMCSkillFireman: 1
         RMCSkillIntel: 1
@@ -91,6 +94,9 @@
       prefix: au14-job-prefix-AU14JobGOVFORDCCWYPMC
 
   requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 18000 # 5 hours
   - !type:TraitsRequirement
     inverted: true
     traits:
@@ -104,6 +110,10 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
+    - CMUMotionSick
   ranks:
     RMCRankCivilian: []
   chevrons:

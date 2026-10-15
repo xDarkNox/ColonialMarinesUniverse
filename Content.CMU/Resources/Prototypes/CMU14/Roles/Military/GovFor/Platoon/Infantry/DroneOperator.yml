@@ -6,7 +6,7 @@
   name: cmu-job-name-govfordroneoperator
   description: cmu-job-description-govfordroneoperator
   icon: "AU14JobIconGovRifleman"
-  spawnMenuRoleName: Drone Operator (GOVFOR)
+  spawnMenuRoleName: cmu-spawn-role-drone-operator-govfor 
   startingGear: CMUGearGOVFORDroneOperator
   dummyStartingGear: CMUGearGOVFORDroneOperatorDummy
   playTimeTracker: CMUJobGOVFORDroneOperator
@@ -38,6 +38,9 @@
         state: rifleman
 
   requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 36000 # 10 hours
   - !type:TraitsRequirement
     inverted: true
     traits:
@@ -46,6 +49,9 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:
@@ -67,7 +73,7 @@
   id: CMUGearGOVFORDroneOperator
   equipment:
     id: CMUIDCardDroneOperator
-    ears: AU14HeadsetGovforMarine
+    ears: CMUHeadsetGovforDroneOperator
 
 - type: startingGear
   id: CMUGearGOVFORDroneOperatorDummy
@@ -76,7 +82,7 @@
     shoes: AU14BootsJungle
     head: AU14JungleM10Helmet
     jumpsuit: AU14JungleFatigues
-    ears: AU14HeadsetGovforMarine
+    ears: CMUHeadsetGovforDroneOperator
     back: CMUDroneOperatorChoicePackFilled
 
 - type: entity
@@ -155,7 +161,7 @@
   id: CMUGearOPFORDroneOperator
   equipment:
     id: CMUIDCardOPFORDroneOperator
-    ears: AU14HeadsetOpforMarine
+    ears: CMUHeadsetOpforDroneOperator
 
 - type: startingGear
   id: CMUGearOPFORDroneOperatorDummy
@@ -164,7 +170,7 @@
     shoes: AU14BootsJungle
     head: AU14JungleM10Helmet
     jumpsuit: AU14JungleFatigues
-    ears: AU14HeadsetOpforMarine
+    ears: CMUHeadsetOpforDroneOperator
     back: CMUDroneOperatorChoicePackFilled
 
 - type: entity

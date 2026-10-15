@@ -5,7 +5,7 @@
   name: au14-job-name-govformilitarypoliceman
   description: au14-job-description-govformilitarypoliceman
   icon: "AU14JobIconMP"
-  spawnMenuRoleName: Military Policeman (GOVFOR)
+  spawnMenuRoleName: cmu-spawn-role-military-policeman-govfor 
   supervisors: au14-job-supervisors-govforplatco
   startingGear: AU14GearGOVFORMilitaryPoliceMan
   dummyStartingGear: AU14GearGOVFORMilitaryPoliceManDummy
@@ -44,6 +44,9 @@
         state: mp
 
   requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 18000 # 5 hours
   - !type:AgeRequirement
     requiredAge: 21
   - !type:TraitsRequirement
@@ -55,6 +58,9 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:

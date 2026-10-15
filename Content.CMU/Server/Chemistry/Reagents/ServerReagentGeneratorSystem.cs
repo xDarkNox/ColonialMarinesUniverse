@@ -368,7 +368,7 @@ public sealed partial class ServerReagentGeneratorSystem : SharedReagentGenerato
                 data.Completed = false;
                 data.Valid = false;
             }
-            if (chem.Class == ReagentClass.Special && _researchdata.Clearance >= 6)
+            if (chem.Class == ReagentClass.Special && (clearance ?? _researchdata.Clearance) >= 6)
             {
                 data.Completed = true;
             }
@@ -822,14 +822,16 @@ public sealed partial class ServerReagentGeneratorSystem : SharedReagentGenerato
                     }
                 }
                 // conflicts
+                // only the property that actually conflicts gets cancelled, checking the whole dict
+                // here used to eat whichever property happened to be iterated first
                 foreach (var list in _unfoldedConflicts)
                 {
-                    if (list[0] == toUse && data.Effects.ContainsKey(list[1]))
+                    if (list[0] == toUse && list[1] == prop.Key)
                     {
                         match = prop;
                         break;
                     }
-                    else if (data.Effects.ContainsKey(list[0]) && list[1] == toUse)
+                    else if (list[0] == prop.Key && list[1] == toUse)
                     {
                         match = prop;
                         break;

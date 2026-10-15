@@ -4,7 +4,6 @@
   swaps:
     ANPRC117GRadio: ANPRC117GRadioOPFOR
     AU14TabletGovfor: AU14TabletOpfor
-    fetchreturngovfor: fetchreturnopfor
 # ├──[ Doors ]──────────────────────────────────────────┤
     CMAirlockCommandGovforGlassLocked: CMAirlockCommandOpforGlassLocked
     CMAirlockCommandGovforLocked: CMAirlockCommandOpforLocked
@@ -50,6 +49,10 @@
     RMCGroundsideOperationsConsoleGovfor: RMCGroundsideOperationsConsoleOpfor
     RMCOverwatchConsoleGovforRotating: RMCOverwatchConsoleOpforRotating
     RMCOverwatchConsoleGovfor: RMCOverwatchConsoleOpfor
+    RMCOverwatchConsoleGovforTOCMap: RMCOverwatchConsoleOpforTOCMap
+    RMCOverwatchConsoleGovforTOCMapRotating: RMCOverwatchConsoleOpforTOCMapRotating
+    RMCOverwatchConsoleGovforTOCShuttle: RMCOverwatchConsoleOpforTOCShuttle
+    RMCOverwatchConsoleGovforTOCShuttleRotating: RMCOverwatchConsoleOpforTOCShuttleRotating
     RMCTechTreeConsoleGovfor: RMCTechTreeConsoleOpfor
     AU14AllianceConsoleGovfor: AU14AllianceConsoleOpfor
     AU14AnalyzerMachine: AU14AnalyzerMachineOpfor

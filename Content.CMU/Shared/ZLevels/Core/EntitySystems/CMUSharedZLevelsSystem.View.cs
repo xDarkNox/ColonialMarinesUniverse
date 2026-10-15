@@ -70,13 +70,13 @@ public abstract partial class CMUSharedZLevelsSystem
             ent.Comp.FaintUp = false;
             DirtyField(ent, ent.Comp, nameof(CMUZLevelViewerComponent.LookUp));
             DirtyField(ent, ent.Comp, nameof(CMUZLevelViewerComponent.FaintUp));
-            _popup.PopupClient(Loc.GetString("cmu-zlevel-look-up-disabled"), ent, ent, PopupType.SmallCaution);
+            _popup.PopupEntity(Loc.GetString("cmu-zlevel-look-up-disabled"), ent, ent, PopupType.SmallCaution);
             return;
         }
 
         if (HasComp<XenoNestedComponent>(ent))
         {
-            _popup.PopupClient(Loc.GetString("cmu-zlevel-look-up-nested"), ent, ent, PopupType.SmallCaution);
+            _popup.PopupEntity(Loc.GetString("cmu-zlevel-look-up-nested"), ent, ent, PopupType.SmallCaution);
             return;
         }
 
@@ -86,14 +86,14 @@ public abstract partial class CMUSharedZLevelsSystem
             // and simply draws nothing while one is overhead, so the mode can stay latched while moving.
             ent.Comp.FaintUp = true;
             DirtyField(ent, ent.Comp, nameof(CMUZLevelViewerComponent.FaintUp));
-            _popup.PopupClient(Loc.GetString("cmu-zlevel-faint-up-enabled"), ent, ent, PopupType.SmallCaution);
+            _popup.PopupEntity(Loc.GetString("cmu-zlevel-faint-up-enabled"), ent, ent, PopupType.SmallCaution);
             return;
         }
 
         // Faint -> full look up (original gates apply; on failure we stay in faint mode).
         if (HasOpaqueAbove(ent))
         {
-            _popup.PopupClient(Loc.GetString("cmu-zlevel-look-up-fail"), ent, ent, PopupType.SmallCaution);
+            _popup.PopupEntity(Loc.GetString("cmu-zlevel-look-up-fail"), ent, ent, PopupType.SmallCaution);
             return;
         }
 
@@ -103,7 +103,7 @@ public abstract partial class CMUSharedZLevelsSystem
         var ev = new CMUZLevelLookUpEnabledEvent();
         RaiseLocalEvent(ent, ev);
 
-        _popup.PopupClient(Loc.GetString("cmu-zlevel-look-up-enabled"), ent, ent, PopupType.SmallCaution);
+        _popup.PopupEntity(Loc.GetString("cmu-zlevel-look-up-enabled"), ent, ent, PopupType.SmallCaution);
     }
 
     public bool TryDisableLookUp(EntityUid uid)
@@ -253,12 +253,40 @@ public abstract partial class CMUSharedZLevelsSystem
         if (offset == 0)
             return false;
 
+        if (TryFindSourceZStairOpening(sourceMap, offset, from, to, out opening))
+            return true;
+
         var openingMap = offset < 0 ? sourceMap : targetMap;
-        if (!_gridQuery.TryComp(openingMap, out var grid))
-            return false;
+        var openingGrid = openingMap;
+        _movementDeckCandidates.Clear();
+        var candidates = _movementDeckCandidates;
+        _map.FindGridsIntersecting(openingMap,
+            new Box2(Vector2.Min(from, to) - new Vector2(0.01f), Vector2.Max(from, to) + new Vector2(0.01f)), ref candidates);
+        foreach (var candidate in candidates)
+        {
+            if (_dropshipDeckQuery.HasComp(candidate.Owner))
+            {
+                openingGrid = candidate.Owner;
+                break;
+            }
+        }
+        if (!_gridQuery.TryComp(openingGrid, out var grid))
+        {
+            if (candidates.Count == 0)
+            {
+                // Empty generated levels have no grid or ceiling to stop the shot.
+                opening = from;
+                return _zMapQuery.HasComp(openingMap);
+            }
+
+            // Generated maps may later acquire ordinary terrain grids. Their
+            // floors still block shots after the dropship has flown away.
+            openingGrid = candidates[0].Owner;
+            grid = candidates[0].Comp;
+        }
 
         var sourceTile = preferOpeningAwayFromSource
-            ? _map.WorldToTile(openingMap, grid, from)
+            ? _map.WorldToTile(openingGrid, grid, from)
             : default;
         var fallbackOpening = Vector2.Zero;
         var hasFallbackOpening = false;
@@ -277,13 +305,14 @@ public abstract partial class CMUSharedZLevelsSystem
 
         bool TryUseOpeningTile(Vector2i tile)
         {
-            if (_map.TryGetTileRef(openingMap, grid, tile, out var tileRef) &&
-                !CMUZLevelOpeningCache.IsOpeningTile(tileRef.Tile, TilDefMan))
+            var openingCenter = _transform.ToMapCoordinates(_map.ToCenterCoordinates(openingGrid, tile, grid)).Position;
+            if (_map.TryFindGridAt(openingMap, openingCenter, out var surface, out var surfaceGrid) &&
+                !CMUZLevelOpeningCache.IsOpeningTile(surface, surfaceGrid, openingCenter, _map, TilDefMan) &&
+                !TryFindZStairOpening(openingMap, sourceMap, openingGrid, grid, tile, offset, out openingCenter))
             {
                 return false;
             }
 
-            var openingCenter = _map.ToCenterCoordinates(openingMap, tile, grid).Position;
             if (Vector2.DistanceSquared(from, openingCenter) > maxSourceDistanceSquared)
                 return false;
 
@@ -313,7 +342,7 @@ public abstract partial class CMUSharedZLevelsSystem
             return true;
         }
 
-        foreach (var tile in EnumerateZShotLine((openingMap, grid), from, to))
+        foreach (var tile in EnumerateZShotLine((openingGrid, grid), from, to))
         {
             if (TryUseOpeningTile(tile))
             {
@@ -333,23 +362,35 @@ public abstract partial class CMUSharedZLevelsSystem
 
     /// <summary>
     /// True when a cross-z shot from <paramref name="from"/> to <paramref name="to"/> crosses no floor
-    /// tiles on <paramref name="map"/>. A map without a grid is fully open air.
+    /// tiles on <paramref name="map"/>, including floors on child grids such as dropship cabins.
     /// </summary>
     public bool IsZShotPathOpen(EntityUid map, Vector2 from, Vector2 to)
     {
-        if (!_gridQuery.TryComp(map, out var grid))
-            return true;
+        if (_gridQuery.TryComp(map, out var mapGrid) && !IsGridPathOpen((map, mapGrid)))
+            return false;
 
-        foreach (var tile in EnumerateZShotLine((map, grid), from, to))
+        _movementDeckCandidates.Clear();
+        var candidates = _movementDeckCandidates;
+        _map.FindGridsIntersecting(map,
+            new Box2(Vector2.Min(from, to) - new Vector2(0.01f), Vector2.Max(from, to) + new Vector2(0.01f)), ref candidates);
+        foreach (var candidate in candidates)
         {
-            if (_map.TryGetTileRef(map, grid, tile, out var tileRef) &&
-                !CMUZLevelOpeningCache.IsOpeningTile(tileRef.Tile, TilDefMan))
-            {
+            if (candidate.Owner != map && !IsGridPathOpen(candidate))
                 return false;
-            }
         }
 
         return true;
+
+        bool IsGridPathOpen(Entity<MapGridComponent> grid)
+        {
+            foreach (var tile in EnumerateZShotLine(grid, from, to))
+            {
+                if (_map.TryGetTileRef(grid, grid.Comp, tile, out var tileRef) &&
+                    !CMUZLevelOpeningCache.IsOpeningTile(tileRef.Tile, TilDefMan))
+                    return false;
+            }
+            return true;
+        }
     }
 
     private IEnumerable<Vector2i> EnumerateZShotLine(Entity<MapGridComponent> map, Vector2 from, Vector2 to)
@@ -395,6 +436,99 @@ public abstract partial class CMUSharedZLevelsSystem
         }
     }
 
+    private bool TryFindSourceZStairOpening(
+        EntityUid sourceMap,
+        int offset,
+        Vector2 from,
+        Vector2 to,
+        out Vector2 opening)
+    {
+        opening = default;
+
+        var delta = to - from;
+        var lengthSquared = delta.LengthSquared();
+        if (lengthSquared <= 0.001f)
+            return false;
+
+        var query = EntityQueryEnumerator<CMUZLevelStairsComponent, TransformComponent>();
+        while (query.MoveNext(out var stairUid, out var stairs, out var xform))
+        {
+            if (xform.MapUid != sourceMap ||
+                stairs.Offset != offset)
+            {
+                continue;
+            }
+
+            var requiredDelta = RequiredZStairDelta(stairs);
+            var candidate = _transform.GetWorldPosition(stairUid) + new Vector2(requiredDelta.X, requiredDelta.Y);
+            var progress = Vector2.Dot(candidate - from, delta) / lengthSquared;
+            if (progress is < 0f or > 1f)
+                continue;
+
+            var closest = from + delta * progress;
+            if (Vector2.DistanceSquared(candidate, closest) > 0.25f)
+                continue;
+
+            opening = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryFindZStairOpening(
+        EntityUid openingMap,
+        EntityUid sourceMap,
+        EntityUid openingGridUid,
+        MapGridComponent grid,
+        Vector2i tile,
+        int offset,
+        out Vector2 openingCenter)
+    {
+        openingCenter = default;
+
+        var query = EntityQueryEnumerator<CMUZLevelStairsComponent, TransformComponent>();
+        while (query.MoveNext(out var stairUid, out var stairs, out var xform))
+        {
+            var onOpeningMap = xform.MapUid == openingMap;
+            var onSourceMap = xform.MapUid == sourceMap;
+            if (!onOpeningMap && !onSourceMap)
+                continue;
+
+            var stairTile = _map.WorldToTile(openingGridUid, grid, _transform.GetWorldPosition(stairUid));
+            if (onOpeningMap && stairs.Offset == -offset && stairTile == tile ||
+                onSourceMap && stairs.Offset == offset && stairTile + RequiredZStairDelta(stairs) == tile)
+            {
+                openingCenter = _transform.ToMapCoordinates(_map.ToCenterCoordinates(openingGridUid, tile, grid)).Position;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Vector2i RequiredZStairDelta(CMUZLevelStairsComponent stairs)
+    {
+        var delta = DirectionDelta(stairs.Direction);
+        return stairs.Offset >= 0 ? delta : -delta;
+    }
+
+    private static Vector2i DirectionDelta(Direction direction)
+    {
+        return direction switch
+        {
+            Direction.North => new Vector2i(0, 1),
+            Direction.South => new Vector2i(0, -1),
+            Direction.East => new Vector2i(1, 0),
+            Direction.West => new Vector2i(-1, 0),
+            Direction.NorthEast => new Vector2i(1, 1),
+            Direction.NorthWest => new Vector2i(-1, 1),
+            Direction.SouthEast => new Vector2i(1, -1),
+            Direction.SouthWest => new Vector2i(-1, -1),
+            _ => Vector2i.Zero,
+        };
+    }
+
     /// <summary>
     /// Collects the bounded cardinal wall group directly beneath a downward shooter. The bound matches the
     /// opening search radius, preventing a shot from flood-filling an arbitrarily large mapped wall network.
@@ -434,7 +568,7 @@ public abstract partial class CMUSharedZLevelsSystem
                 if (_zShotSupportingWallTiles.Contains(neighbor))
                     continue;
 
-                var center = _map.ToCenterCoordinates(targetGridUid, neighbor, targetGrid).Position;
+                var center = _transform.ToMapCoordinates(_map.ToCenterCoordinates(targetGridUid, neighbor, targetGrid)).Position;
                 if (Vector2.DistanceSquared(source, center) > searchRadiusSquared ||
                     !HasWallAt(targetGridUid, targetGrid, neighbor))
                 {

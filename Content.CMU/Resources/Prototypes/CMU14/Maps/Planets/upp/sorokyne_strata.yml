@@ -36,6 +36,9 @@
     - cultistThirdParty
     - UPPGROM
     - UPPGROMAlt
+    - CHTORM_PMC_BEAR
+    - GROZA_PMC_BEAR
+    - SKALA_PMC_BEAR
     - UPPGROMAlt2
     - CLFSurvsBig
     - CLFSurvsMedium
@@ -55,7 +58,7 @@
     - WYHT
     - WYPMCParty
     - WYPMCPartyAlt
-    - abominationThirdParty
+    - biomorphThirdParty
     threats:
     - XenoThreat
     - NeomorphsThreat
@@ -64,7 +67,7 @@
     - NeomorphsThreatCF
     - CultistThreatCF
     - WendigoThreatCF
-    - AbominationsThreatCF
+    - BiomorphsThreatCF
     - TribalsThreatCF
     - ApeThreatCF
     jobScalingFof: DefaultGovforOpforScale

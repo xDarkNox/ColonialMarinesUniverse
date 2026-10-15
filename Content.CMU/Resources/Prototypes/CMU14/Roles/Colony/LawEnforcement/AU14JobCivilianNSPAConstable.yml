@@ -33,6 +33,8 @@
   description: au14-job-description-civiliannspaConstable
   setPreference: true
   requirements:
+  - !type:OverallPlaytimeRequirement
+    time: 7200 # 2 hours
   - !type:AgeRequirement
     requiredAge: 21
   - !type:TraitsRequirement
@@ -40,6 +42,9 @@
     traits:
     - Epilepsy
     - NoEnglish
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   canBeAntag: false
   ranks:
     RMCRankCivilian: []
@@ -64,7 +69,7 @@
   requireAdminNotify: false
   joinNotifyCrew: false
   supervisors: au14-job-supervisors-colonycivilian
-  spawnMenuRoleName: NSPA Constable (CMU)
+  spawnMenuRoleName: cmu-spawn-role-nspa-constable-cmu 
   accessGroups:
   - aucmb
   - Colonist
@@ -84,11 +89,11 @@
     suitstorage: AU14BeltHolsterPistolBlack
     pocket1: AU14PouchIFAKFill
     pocket2: AU14PouchGeneralLargeLEOFilled
-  inhand:
-  - AU14GunCasePistolL45
   storage:
     back:
     - AU14GuidebookLawColonial
+    - CMURecordsTablet
+    - ForensicScanner
 
 - type: entity
   parent: CMSpawnPointJobBase

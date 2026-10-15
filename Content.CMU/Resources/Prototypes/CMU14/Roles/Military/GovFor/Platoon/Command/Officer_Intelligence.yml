@@ -14,8 +14,8 @@
   canBeAntag: false
   displayWeight: 7
   accessGroups:
-  - AU14GovforCommand
-  - aulegacygroupcommand
+  - AU14GovforCommandNoLogistics
+  - aulegacygroupcommandnologistics
 
 - type: job
   abstract: true
@@ -25,6 +25,7 @@
   roundProfiles:
   - AU14RoundJobProfileMilitaryBase
   roundComponents:
+  - type: AU14CallToAttentionAbility
   - type: AU14CallsignRole
     suffix: OPS
     commandElement: true
@@ -56,8 +57,9 @@
     # - type: JobPrefix
     #   prefix: au14-job-prefix-govforintelCMBCIU
   requirements:
-  - !type:OverallPlaytimeRequirement
-    time: 18000 # 5 hours
+  - !type:RoleTimeRequirement
+    role: AU14JobGOVFORRadioTelephoneOperator
+    time: 7200 # 2 hours
   - !type:AgeRequirement
     requiredAge: 25
   - !type:TraitsRequirement
@@ -76,6 +78,9 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:
@@ -106,8 +111,8 @@
   startingGear: AU14GearOPFOROfficerIntel
   dummyStartingGear: AU14GearOPFOROfficerIntelDummy
   accessGroups:
-  - AU14OpforCommand
-  - aulegacygroupcommand
+  - AU14OpforCommandNoLogistics
+  - aulegacygroupcommandnologistics
 
 # ├──[ Starting Gear ]───────────────────────────────────────────────┤
   useLoadoutOfJob: AU14JobGOVFOROfficerIntel
@@ -201,7 +206,10 @@
   parent: AU14JobOfficerIntelBase
   id: AU14JobGOVFOROfficerIntelUPP
   roundForce: UPP
-  requirements: []
+  requirements:
+  - !type:RoleTimeRequirement
+    role: AU14JobGOVFORRadioTelephoneOperator
+    time: 7200 # 2 hours
   name: Intelligence Officer
   spawnMenuRoleName: Intelligence Officer (UPP)
   ranks:
@@ -215,7 +223,10 @@
   parent: AU14JobOfficerIntelBase
   id: AU14JobGOVFOROfficerIntelWYPMC
   roundForce: WYPMC
-  requirements: []
+  requirements:
+  - !type:RoleTimeRequirement
+    role: AU14JobGOVFORRadioTelephoneOperator
+    time: 7200 # 2 hours
   name: PMC Intelligence Analyst
   spawnMenuRoleName: Intelligence Officer (WYPMC)
   ranks:

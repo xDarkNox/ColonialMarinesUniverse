@@ -1,5 +1,5 @@
 - type: job
-  parent: CMJobBase
+  parent: RMCJobRibbonBase
   id: AU14JobCLFCellLeader
   roundSide: ThirdParty
   roundForce: CLF
@@ -57,7 +57,10 @@
   playTimeTracker: AU14JobCLFCellLeader
   requirements:
   - !type:OverallPlaytimeRequirement
-    time: 18000 # 5 hours
+    time: 86400 # 24 hours
+  - !type:DepartmentTimeRequirement
+    department: AU14DepartmentColonialLiberationFront
+    time: 36000 # 10 hours
   - !type:TraitsRequirement
     inverted: true
     traits:
@@ -71,7 +74,7 @@
   requireAdminNotify: true
   joinNotifyCrew: false
   supervisors: au14-job-supervisors-clfcellleader
-  spawnMenuRoleName: CLF Cell Leader (CMU)
+  spawnMenuRoleName: cmu-spawn-role-clf-cell-leader-cmu 
   accessGroups:
   - Colonist
   roleWeight: 0.25
