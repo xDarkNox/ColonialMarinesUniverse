@@ -220,6 +220,9 @@
   components:
   - type: VendorMarker
     class: VehicleCrew
+  - type: Sprite
+    sprite: _RMC14/Structures/Machines/VendingMachines/ColMarTech/clothing.rsi
+    state: base
 
 - type: entity
   parent: VmarkerShip
@@ -242,6 +245,55 @@
   - type: Sprite
     sprite: _RMC14/Structures/Machines/VendingMachines/ColMarTech/medical_gear.rsi
     state: base
+
+- type: entity
+  parent: VmarkerShip
+  id: CMUVMarkerShipResearchTerminal
+  name: Ship research terminal marker
+  components:
+  - type: VendorMarker
+    class: ResearchTerminal
+  - type: Sprite
+    sprite: _RMC14/Structures/Machines/computer.rsi
+    state: research
+
+- type: entity
+  parent: VmarkerShip
+  id: CMUVMarkerShipHospitalEmergencyComputer
+  name: Ship hospital emergency computer marker
+  components:
+  - type: VendorMarker
+    class: HospitalEmergencyComputer
+  - type: Sprite
+    sprite: _RMC14/Structures/Machines/computer.rsi
+    state: terminal
+
+- type: entity
+  parent: CMUVMarkerShipHospitalEmergencyComputer
+  id: CMUVMarkerGovforHospitalEmergencyComputer
+  name: GOVFOR hospital emergency computer marker
+  components:
+  - type: VendorMarker
+    ship: false
+    govfor: true
+
+- type: entity
+  parent: CMUVMarkerShipHospitalEmergencyComputer
+  id: CMUVMarkerOpforHospitalEmergencyComputer
+  name: OPFOR hospital emergency computer marker
+  components:
+  - type: VendorMarker
+    ship: false
+    opfor: true
+
+- type: entity
+  parent: CMUVMarkerShipHospitalEmergencyComputer
+  id: CMUVMarkerColonyHospitalEmergencyComputer
+  name: Colony hospital emergency computer marker
+  components:
+  - type: VendorMarker
+    ship: false
+    colony: true
 
 - type: entity
   parent: VmarkerShip
@@ -452,3 +504,27 @@
   - type: Sprite
     sprite: _RMC14/Structures/Machines/sentry_deployer.rsi
     state: floor_sentry_installed
+
+# The mess hall food dispenser: NutriCo's default menu, or the platoon's own meals.
+- type: entity
+  parent: VmarkerShip
+  id: CMUVMarkerShipMessFood
+  name: Ship mess food marker
+  components:
+  - type: VendorMarker
+    class: MessFood
+  - type: Sprite
+    sprite: _RMC14/Structures/Machines/VendingMachines/NutriCo/food.rsi
+    state: base
+
+# The mess hall drink dispenser: NutriCo's default drinks, or the platoon's own.
+- type: entity
+  parent: VmarkerShip
+  id: CMUVMarkerShipMessDrink
+  name: Ship mess drink marker
+  components:
+  - type: VendorMarker
+    class: MessDrink
+  - type: Sprite
+    sprite: _RMC14/Structures/Machines/VendingMachines/NutriCo/drink.rsi
+    state: base

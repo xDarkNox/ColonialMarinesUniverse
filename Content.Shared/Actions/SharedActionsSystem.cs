@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Content.Shared._RMC14.Actions;
 using Content.Shared._RMC14.Movement;
+using Content.Shared.CMU14.ZLevels.Core.EntitySystems; // CMU14
 using Content.Shared.ActionBlocker;
 using Content.Shared.Actions.Components;
 using Content.Shared.Actions.Events;
@@ -42,6 +43,7 @@ public abstract partial class SharedActionsSystem : EntitySystem
     // RMC14
     [Dependency] private SharedRMCActionsSystem _rmcActions = default!;
     [Dependency] private SharedRMCLagCompensationSystem _rmcLagCompensation = default!;
+    [Dependency] private CMUSharedZLevelsSystem _zLevels = default!; // CMU14
 
     [Dependency] private EntityQuery<ActionComponent> _actionQuery = default!;
     [Dependency] private EntityQuery<ActionsComponent> _actionsQuery = default!;
@@ -133,6 +135,9 @@ public abstract partial class SharedActionsSystem : EntitySystem
         if (GetAction(action) is not { } ent)
             return;
 
+        if (ent.Comp.Cooldown is { } previous && previous.Start == start && previous.End == end)
+            return;
+
         ent.Comp.Cooldown = new ActionCooldown
         {
             Start = start,
@@ -143,7 +148,7 @@ public abstract partial class SharedActionsSystem : EntitySystem
 
     public void RemoveCooldown(Entity<ActionComponent?>? action)
     {
-        if (GetAction(action) is not { } ent)
+        if (GetAction(action) is not { } ent || ent.Comp.Cooldown == null)
             return;
 
         ent.Comp.Cooldown = null;
@@ -165,6 +170,9 @@ public abstract partial class SharedActionsSystem : EntitySystem
             return;
 
         if (ent.Comp.Cooldown is not { } cooldown)
+            return;
+
+        if (cooldown.End == GameTiming.CurTime)
             return;
 
         ent.Comp.Cooldown = new ActionCooldown
@@ -218,11 +226,15 @@ public abstract partial class SharedActionsSystem : EntitySystem
         if (GetAction(action) is not { } ent)
             return;
 
+        var previous = ent.Comp.UseDelay;
         if (ent.Comp.UseDelay != null && lowerDelay != null)
             ent.Comp.UseDelay -= lowerDelay;
 
         if (ent.Comp.UseDelay < TimeSpan.Zero)
             ent.Comp.UseDelay = null;
+
+        if (ent.Comp.UseDelay == previous)
+            return;
 
         UpdateAction(ent);
         DirtyField(ent, ent.Comp, nameof(ActionComponent.UseDelay));
@@ -510,7 +522,10 @@ public abstract partial class SharedActionsSystem : EntitySystem
         // even if we don't check for obstructions, we may still need to check the range.
         var xform = Transform(user);
         if (xform.MapID != _transform.GetMapId(coords))
-            return false;
+        {
+            // CMU14: unlimited range actions reach the other floors, like the queen healing through her eye
+            return comp.Range <= 0 && xform.MapUid is { } userMap && _zLevels.IsSameZNetwork(_transform.GetMap(coords), userMap);
+        }
 
         if (comp.Range <= 0)
             return true;

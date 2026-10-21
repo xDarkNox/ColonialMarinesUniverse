@@ -97,6 +97,11 @@ public sealed partial class ShuttleSystem
     {
         QueueDel(ent.Comp.VisualizerEntity);
         ent.Comp.VisualizerEntity = null;
+        // CMU14: faction gameplay fixes.
+        if (TryComp(ent.Comp.StartupStream, out AudioComponent? startup) && startup.Params.Loop)
+            ent.Comp.StartupStream = _audio.Stop(ent.Comp.StartupStream);
+        // CMU14: interrupted flights must release their owned loop as well as normal arrivals.
+        ent.Comp.TravelStream = _audio.Stop(ent.Comp.TravelStream);
     }
 
     private void OnStationPostInit(ref StationPostInitEvent ev)
@@ -287,10 +292,11 @@ public sealed partial class ShuttleSystem
         float? hyperspaceTime = null,
         string? priorityTag = null)
     {
-        if (!TrySetupFTL(shuttleUid, component, out var hyperspace))
+        // CMU14: faction gameplay fixes.
+        startupTime ??= DefaultStartupTime;
+        if (!TrySetupFTL(shuttleUid, component, startupTime.Value, out var hyperspace))
             return;
 
-        startupTime ??= DefaultStartupTime;
         hyperspaceTime ??= DefaultTravelTime;
 
         hyperspace.StartupTime = startupTime.Value;
@@ -322,10 +328,11 @@ public sealed partial class ShuttleSystem
         float? hyperspaceTime = null,
         string? priorityTag = null)
     {
-        if (!TrySetupFTL(shuttleUid, component, out var hyperspace))
+        // CMU14: faction gameplay fixes.
+        startupTime ??= DefaultStartupTime;
+        if (!TrySetupFTL(shuttleUid, component, startupTime.Value, out var hyperspace))
             return;
 
-        startupTime ??= DefaultStartupTime;
         hyperspaceTime ??= DefaultTravelTime;
 
         var config = _dockSystem.GetDockingConfig(shuttleUid, target, priorityTag);
@@ -357,7 +364,8 @@ public sealed partial class ShuttleSystem
         }
     }
 
-    private bool TrySetupFTL(EntityUid uid, ShuttleComponent shuttle, [NotNullWhen(true)] out FTLComponent? component)
+    // CMU14: faction gameplay fixes.
+    private bool TrySetupFTL(EntityUid uid, ShuttleComponent shuttle, float startupTime, [NotNullWhen(true)] out FTLComponent? component)
     {
         component = null;
 
@@ -390,7 +398,15 @@ public sealed partial class ShuttleSystem
             component.TravelSound = dropship.TravelSound ?? component.TravelSound;
         }
 
-        var audio = _audio.PlayPvs(startupSound, uid);
+        // CMU14: faction gameplay fixes.
+        var resolvedStartup = _audio.ResolveSound(startupSound);
+        var startupParams = startupSound.Params;
+        if (dropship?.StartupSound != null &&
+            _audio.GetAudioLength(resolvedStartup).TotalSeconds < startupTime)
+        {
+            startupParams = startupParams.WithLoop(true);
+        }
+        var audio = _audio.PlayPvs(resolvedStartup, uid, startupParams);
         _audio.SetGridAudio(audio);
         component.StartupStream = audio?.Entity;
 
@@ -440,13 +456,33 @@ public sealed partial class ShuttleSystem
         // Just so we don't clip
         if (fromMapUid != null && TryComp(comp.StartupStream, out AudioComponent? startupAudio))
         {
-            var clippedAudio = _audio.PlayStatic(new SoundPathSpecifier(startupAudio.FileName), Filter.Broadcast(),
-                new EntityCoordinates(fromMapUid.Value, _mapSystem.GetGridPosition(entity.Owner)), true, startupAudio.Params);
+            // CMU14: faction gameplay fixes.
+            var playback = entity.Comp1.StartupTime;
+            if (startupAudio.Params.Loop)
+            {
+                var length = (float) _audio.GetAudioLength(new ResolvedPathSpecifier(startupAudio.FileName)).TotalSeconds;
+                playback = length > 0 ? playback % length : 0;
+            }
+            var tailParams = startupAudio.Params;
+            // CMU14 Begin: distant clients should not allocate an inaudible departure tail.
+            // var clippedAudio = _audio.PlayStatic(new SoundPathSpecifier(startupAudio.FileName), Filter.Broadcast(),
+            //     new EntityCoordinates(fromMapUid.Value, _mapSystem.GetGridPosition(entity.Owner)), true, tailParams.WithLoop(false));
+            var tailCoordinates = new EntityCoordinates(fromMapUid.Value, _mapSystem.GetGridPosition(entity.Owner));
+            var tailAudience = Filter.Empty().AddInRange(_transform.ToMapCoordinates(tailCoordinates), tailParams.MaxDistance);
+            var clippedAudio = _audio.PlayStatic(new SoundPathSpecifier(startupAudio.FileName), tailAudience,
+                tailCoordinates, true, tailParams.WithLoop(false));
+            // CMU14 End
 
-            _audio.SetPlaybackPosition(clippedAudio, entity.Comp1.StartupTime);
+            // CMU14: faction gameplay fixes.
+            _audio.SetPlaybackPosition(clippedAudio, playback);
             if (clippedAudio != null)
                 clippedAudio.Value.Component.Flags |= AudioFlags.NoOcclusion;
         }
+        // CMU14: faction gameplay fixes.
+
+        // A repeated custom startup cue must not follow the ship and play over its flight ambience.
+        if (TryComp(comp.StartupStream, out AudioComponent? loopedStartup) && loopedStartup.Params.Loop)
+            comp.StartupStream = _audio.Stop(comp.StartupStream);
 
         // Offset the start by buffer range just to avoid overlap.
         var ftlStart = new EntityCoordinates(ftlMap, new Vector2(_index + width / 2f, 0f) - shuttleCenter);
@@ -537,6 +573,7 @@ public sealed partial class ShuttleSystem
         _physics.SetAngularVelocity(uid, 0f, body: body);
 
         var target = entity.Comp1.TargetCoordinates;
+        var exactYautjaLanding = false;
 
         //RMC14
         var ev = new BeforeFTLFinishedEvent();
@@ -570,7 +607,23 @@ public sealed partial class ShuttleSystem
             // Couldn't dock somehow so just fallback to regular position FTL.
             if (config == null)
             {
-                TryFTLProximity(uid, target.EntityId);
+                if (TryComp(uid, out DropshipComponent? dropship) &&
+                    TryComp(dropship.Destination, out DropshipDestinationComponent? destination) &&
+                    string.Equals(destination.FactionController, "yautja", StringComparison.OrdinalIgnoreCase))
+                {
+                    exactYautjaLanding = true;
+                    var mapUid = _mapSystem.GetMap(mapCoordinates.MapId);
+                    var destinationRotation = entity.Comp1.TargetAngle + _transform.GetWorldRotation(target.EntityId);
+                    _transform.SetCoordinates(
+                        uid,
+                        xform,
+                        new EntityCoordinates(mapUid, mapCoordinates.Position),
+                        rotation: destinationRotation);
+                }
+                else
+                {
+                    TryFTLProximity(uid, target.EntityId);
+                }
             }
             else
             {
@@ -582,7 +635,6 @@ public sealed partial class ShuttleSystem
         // Position ftl
         else
         {
-            // TODO: This should now use tryftlproximity
             mapId = _transform.GetMapId(target);
             _transform.SetCoordinates(uid, xform, target, rotation: entity.Comp1.TargetAngle);
         }
@@ -594,7 +646,7 @@ public sealed partial class ShuttleSystem
 
             // Disable shuttle if it's on a planet; unfortunately can't do this in parent change messages due
             // to event ordering and awake body shenanigans (at least for now).
-            if (_mapGridQuery.HasComp(xform.MapUid))
+            if (exactYautjaLanding || _mapGridQuery.HasComp(xform.MapUid))
             {
                 Disable(uid, component: body);
             }
@@ -687,6 +739,11 @@ public sealed partial class ShuttleSystem
         {
             foreach (var child in toKnock)
             {
+                // cmu edit start: aircrew keep their feet through takeoff and landing
+                if (CMUKeepsFooting(child))
+                    continue;
+                // cmu edit end
+
                 _stuns.TryUpdateParalyzeDuration(child, _hyperspaceKnockdownTime);
 
                 // If the guy we knocked down is on a spaced tile, throw them too
@@ -1028,7 +1085,7 @@ public sealed partial class ShuttleSystem
         var tiles = new HashSet<Vector2i>();
         if (TryComp(uid, out MapGridComponent? shuttleGrid))
         {
-            var enumerator = _mapSystem.GetAllTilesEnumerator(uid, shuttleGrid);
+            var enumerator = _mapSystem.GetAllTiles(uid, shuttleGrid);
             while (enumerator.MoveNext(out var tile))
             {
                 tiles.Add(tile.Value.GridIndices);
@@ -1078,9 +1135,13 @@ public sealed partial class ShuttleSystem
                 if (_bodyQuery.TryGetComponent(ent, out var mob))
                 {
                     var position = _transform.GetMapCoordinates(ent);
-                    var diff = position.Position - aabb.Center;
-                    if (!tiles.Contains(diff.Floored()))
+                    // CMU14 Begin: tile indices use the authored grid origin, including the ship's rotation.
+                    // var diff = position.Position - aabb.Center;
+                    // if (!tiles.Contains(diff.Floored()))
+                    var localPosition = _transform.ToCoordinates(uid, position).Position;
+                    if (!tiles.Contains(localPosition.Floored()))
                         continue;
+                    // CMU14 End
 
                     _logger.Add(LogType.Gib, LogImpact.Extreme, $"{ToPrettyString(ent):player} got gibbed by the shuttle" +
                                                                 $" {ToPrettyString(uid)} arriving from FTL at {xform.Coordinates:coordinates}");

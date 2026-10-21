@@ -1,8 +1,16 @@
 - type: job
   parent: CMJobBase
   id: AU14JobCivilianCorporateAdminAssistant
+  requirements:
+  - !type:TraitsRequirement
+    inverted: true
+    traits:
+    - CMUAlcoholic
+    - CMUDrugAddict
   roundSide: Civilian
   roundForce: WY
+  roundProfiles:
+  - AU14RoundJobProfileThirdParty
   roundRole: CivilianCorporateAdminAssistant
   roundComponents:
   - type: Skills
@@ -56,9 +64,11 @@
     back: CMSatchel
   inhand:
   - RMCRadioHandheldColonyOff
+  - CMUMobilePhone
   storage:
     back:
     - CMUUniversalPaperTool
+    - CMUPepperSpray
 
 - type: entity
   parent: CMSpawnPointJobBase

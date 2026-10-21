@@ -1,18 +1,24 @@
 using Content.Server.CMU14.Threats.Rules;
+using Content.Server.CMU14.Dropship.Integrity;
 using Content.Server.GameTicking;
 using Content.Shared._RMC14.Dropship;
 using Content.Shared._RMC14.Rules;
 using Content.Shared._RMC14.Xenonids.Hive;
 using Content.Shared.CMU14.Threats.Rules;
+using Content.Shared.CMU14.Dropship.Integrity;
 using Content.Shared.GameTicking;
 using Content.Shared.Mobs;
+using Robust.Shared.GameObjects;
 
 namespace Content.IntegrationTests.CMU14.Threats;
 
 [TestFixture]
 public sealed class ThreatHijackVictoryTest
 {
-    [Test, Timeout(180000)]
+    private static readonly Robust.Shared.Prototypes.EntProtoId KillAllXenoRulePrototype = "KillAllXenoRule";
+    private static readonly Robust.Shared.Prototypes.EntProtoId HiveCollapseRulePrototype = "HiveCollapseRule";
+
+    [Test, CancelAfter(180000)]
     public async Task WreckCannotEndRoundWithSevenSurvivorsAndAReplacementQueen()
     {
         await using var pair = await PoolManager.GetServerClient(new PoolSettings { DummyTicker = false, Dirty = true });
@@ -37,8 +43,8 @@ public sealed class ThreatHijackVictoryTest
                 survivors.Add(drone);
             }
 
-            Assert.That(ticker.StartGameRule("KillAllXenoRule"), Is.True);
-            var collapse = ticker.AddGameRule("HiveCollapseRule");
+            Assert.That(ticker.StartGameRule(KillAllXenoRulePrototype), Is.True);
+            var collapse = ticker.AddGameRule(HiveCollapseRulePrototype);
             entities.GetComponent<HiveCollapseRuleComponent>(collapse).HiveCollapseDuration = TimeSpan.FromSeconds(1);
             Assert.That(ticker.StartGameRule(collapse), Is.True);
             mobs.ChangeMobState(oldQueen, MobState.Dead);
@@ -47,9 +53,14 @@ public sealed class ThreatHijackVictoryTest
             survivors.Add(queen);
             Assert.That(entities.GetComponent<HiveComponent>(hive).CurrentQueen, Is.EqualTo(queen));
 
-            var wreck = entities.SpawnEntity(null, map.GridCoords);
-            var dropship = entities.AddComponent<DropshipComponent>(wreck);
-            entities.System<SharedDropshipSystem>().SetDropshipCrashed((wreck, dropship), true);
+            // Exercise the Lexington's hull-failure route instead of just setting a wreck flag.
+            var wreck = entities.System<SharedMapSystem>().CreateGridEntity(map.MapId);
+            entities.AddComponent<DropshipComponent>(wreck);
+            var integrity = entities.EnsureComponent<DropshipIntegrityComponent>(wreck);
+            integrity.CrashWarningTime = TimeSpan.Zero;
+            entities.System<DropshipIntegritySystem>().DamageIntegrity((wreck, integrity), integrity.MaxIntegrity);
+            Assert.That(integrity.Crashing, Is.True);
+            Assert.That(entities.System<ThreatRuleHelper>().HasLandedDropshipHijack(), Is.False);
             var casualty = entities.SpawnEntity("CMXenoDrone", map.GridCoords);
             mobs.ChangeMobState(casualty, MobState.Dead);
             Assert.That(ticker.RunLevel, Is.EqualTo(GameRunLevel.InRound),

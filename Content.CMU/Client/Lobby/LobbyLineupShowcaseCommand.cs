@@ -48,6 +48,8 @@ public sealed partial class LobbyLineupShowcaseCommand : LocalizedCommands
                 show = LobbyPartyShow.Flyby;
             else if (arg == "parade")
                 show = LobbyPartyShow.Parade;
+            else if (arg == "supply")
+                show = LobbyPartyShow.SupplyScramble;
             else if (arg == "off" && args.Length == 1)
                 break;
             else if (!int.TryParse(arg, out count) || count is < 1 or > 256)
@@ -58,7 +60,7 @@ public sealed partial class LobbyLineupShowcaseCommand : LocalizedCommands
         }
 
         _window?.Close();
-        _window?.Dispose();
+        _window?.Release();
         _window = null;
         _states.OnStateChanged -= OnStateChanged;
         var lobby = (_states.CurrentState as LobbyState)?.Lobby;

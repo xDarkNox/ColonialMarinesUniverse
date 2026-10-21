@@ -6,11 +6,13 @@ using Content.Shared.CMU14.ZLevels.Core.Components;
 using Content.Shared.Interaction;
 using Content.Shared.Mobs.Components;
 using Content.Shared.Physics;
+using Content.Shared.Popups;
 using Content.Shared._RMC14.Vehicle.Supply;
 using Robust.Shared.Map;
 using Robust.Shared.Map.Components;
 using Robust.Shared.Physics;
 using Robust.Shared.Physics.Components;
+using Robust.Shared.Physics.Dynamics;
 using Robust.Shared.Physics.Systems;
 using Robust.Shared.Physics.Events;
 
@@ -24,6 +26,7 @@ public sealed partial class FighterSystem
     [Dependency] private ObjectiveControlSystem _objectives = default!;
     [Dependency] private FixtureSystem _groundFixtures = default!;
     private readonly HashSet<EntityUid> _groundBlockers = [];
+    private readonly HashSet<FixtureProxy> _exitFixtures = [];
 
     private void InitializeGround()
     {
@@ -106,12 +109,19 @@ public sealed partial class FighterSystem
     {
         if (seat.Comp.Aircraft is { } uid && TryComp(uid, out FighterAircraftComponent? flight) &&
             flight.GroundEntity is { } hull && TryComp(hull, out FighterGroundComponent? ground) &&
-            ground.State != FighterGroundState.Grounded && !ground.SwappingSeat && args.User != null)
+            !ground.SwappingSeat && args.User != null)
         {
-            args.Cancelled = true;
-            // Only the occupant can arm their ejection handle. External unbuckle
-            // attempts must not eject another player or silently open a warning.
-            if (args.User == seat.Comp.Occupant) TryRequestEjection(args.User);
+            if (ground.State != FighterGroundState.Grounded)
+            {
+                args.Cancelled = true;
+                // Only the occupant can arm their ejection handle.
+                if (args.User == seat.Comp.Occupant) TryRequestEjection(args.User);
+            }
+            else if (!TryGetGroundExit(seat, hull, args.Buckle.Owner, out _))
+            {
+                args.Cancelled = true;
+                _popup.PopupEntity(Loc.GetString("cmu-fighter-exit-blocked"), seat, args.User);
+            }
         }
     }
 
@@ -184,9 +194,52 @@ public sealed partial class FighterSystem
         if (seat.Comp.Aircraft is not { } uid || !TryComp(uid, out FighterAircraftComponent? flight) ||
             flight.GroundEntity is not { } hull || !TryComp(hull, out FighterGroundComponent? ground) ||
             ground.SwappingSeat || ground.State != FighterGroundState.Grounded || Transform(hull).MapUid == null) return;
+        if (TryGetGroundExit(seat, hull, occupant, out var exit))
+            _transform.SetCoordinates(occupant, exit);
+        else
+            _transform.SetCoordinates(occupant, _transform.GetMoverCoordinates(occupant));
+    }
+
+    private bool TryGetGroundExit(EntityUid seat, EntityUid hull, EntityUid occupant, out EntityCoordinates exit)
+    {
+        exit = default;
         var xform = Transform(hull);
-        var exit = xform.LocalRotation.RotateVec(new Vector2(2.5f * FighterGroundComponent.SizeMultiplier, 0));
-        _transform.SetCoordinates(occupant, xform.Coordinates.Offset(exit));
+        if (xform.MapUid is not { } map) return false;
+        var origin = _transform.GetMapCoordinates(seat);
+        var localSeat = Vector2.Transform(origin.Position, _transform.GetInvWorldMatrix(hull));
+        const CollisionGroup mask = CollisionGroup.MobMask | CollisionGroup.BarricadeImpassable;
+        // Search both sides of this seat, starting nearby. Never jump through a
+        // wall to reach a clear tile on its far side.
+        foreach (var distance in new[] { 1.1f, 1.6f, 2.1f })
+        foreach (var along in new[] { 0f, -0.75f, 0.75f })
+        foreach (var side in new[] { 1f, -1f })
+        {
+            var candidate = xform.Coordinates.Offset(xform.LocalRotation.RotateVec(localSeat + new Vector2(side * distance, along)));
+            var point = _transform.ToMapCoordinates(candidate);
+            var bounds = new Box2(point.Position - new Vector2(.4f), point.Position + new Vector2(.4f));
+            if (!HasGroundTile(map, point.Position) || !HasGroundTile(map, bounds.BottomLeft) ||
+                !HasGroundTile(map, bounds.BottomRight) || !HasGroundTile(map, bounds.TopLeft) ||
+                !HasGroundTile(map, bounds.TopRight) ||
+                !_groundInteraction.InRangeUnobstructed(origin, point, range: 3, collisionMask: mask,
+                    predicate: entity => entity == hull || entity == occupant || Transform(entity).ParentUid == hull))
+                continue;
+
+            _exitFixtures.Clear();
+            _groundLookup.GetFixturesIntersecting(point.MapId, bounds, _exitFixtures,
+                new FixtureQueryArgs(new QueryFilter { LayerBits = -1, MaskBits = (int) mask }));
+            var blocked = false;
+            foreach (var fixture in _exitFixtures)
+            {
+                if (fixture.Entity == occupant || !fixture.Fixture.Hard || !fixture.Body.CanCollide ||
+                    (fixture.Fixture.CollisionLayer & (int) mask) == 0) continue;
+                blocked = true;
+                break;
+            }
+            if (blocked) continue;
+            exit = candidate;
+            return true;
+        }
+        return false;
     }
 
     private void OnGroundShutdown(Entity<FighterGroundComponent> ground, ref ComponentShutdown args)
@@ -251,6 +304,7 @@ public sealed partial class FighterSystem
     {
         if (aircraft.Comp.GroundEntity is not { } hull || !TryComp(hull, out FighterGroundComponent? ground)) return;
         FighterFlight.Abort(aircraft.Comp);
+        ground.LandingBlockedSince = null;
         SetGroundState((hull, ground), aircraft, FighterGroundState.Returning);
         foreach (var seatUid in new[] { aircraft.Comp.FrontSeat, aircraft.Comp.RearSeat })
             if (seatUid is { } uid && TryComp(uid, out FighterSeatComponent? seat))
@@ -319,6 +373,7 @@ public sealed partial class FighterSystem
         if (a.GroundEntity is not { } hull || !TryComp(hull, out FighterGroundComponent? component)) return;
         var ground = new Entity<FighterGroundComponent>(hull, component);
         var now = _timing.CurTime;
+        if (a.GroundState == FighterGroundState.Crashed) return;
         if (a.GroundState == FighterGroundState.Airborne && (a.ForcedRetreat || !HasCombatPilot(a))) ReturnToGround(aircraft);
         if (a.GroundState == FighterGroundState.Grounded)
         {
@@ -333,7 +388,27 @@ public sealed partial class FighterSystem
         if (a.GroundState == FighterGroundState.Returning && a.Phase == FighterPhase.Holding && now >= component.EndsAt)
         {
             if (component.LaunchCoordinates is not { } launchCoordinates || !GroundSiteClear(hull, launchCoordinates))
-            { a.RecoveryHandoff = false; component.EndsAt = now + TimeSpan.FromSeconds(2); return; }
+            {
+                if (a.ForcedRetreat && TryComp(aircraft, out FighterAirCombatComponent? combat)) BeginCrash(aircraft, combat);
+                else
+                {
+                    a.RecoveryHandoff = false;
+                    component.EndsAt = now + TimeSpan.FromSeconds(2);
+                    // a crewman on the spot moves off, a hijacked dropship crashed onto it never does
+                    component.LandingBlockedSince ??= now;
+                    if (component.LaunchCoordinates is { } blocked &&
+                        now >= component.LandingBlockedSince + component.LandingDivertDelay &&
+                        TryFindDivertSite(hull, blocked, component.LandingDivertRange, out var divert))
+                    {
+                        component.LaunchCoordinates = divert;
+                        component.LandingBlockedSince = null;
+                        component.EndsAt = now;
+                        PopupCrew(a, Loc.GetString("cmu-fighter-landing-diverted"));
+                    }
+                }
+                return;
+            }
+            component.LandingBlockedSince = null;
             if (!a.RecoveryHandoff)
             {
                 SetGroundState(ground, aircraft, FighterGroundState.Returning, TimeSpan.FromSeconds(1.2));
@@ -393,7 +468,37 @@ public sealed partial class FighterSystem
             a.Position = FighterFlight.HoldingPoint(a);
             a.Height = a.TargetHeight;
             SetGroundState(ground, aircraft, FighterGroundState.Returning, TimeSpan.FromSeconds(2));
+            if (a.ForcedRetreat && TryComp(aircraft, out FighterAirCombatComponent? combat)) BeginCrash(aircraft, combat);
         }
+    }
+
+    // nearest clear spot around a blocked recovery site, ring by ring, in whole tiles so it stays on the grid
+    private bool TryFindDivertSite(EntityUid hull, EntityCoordinates blocked, int range, out EntityCoordinates site)
+    {
+        for (var ring = 1; ring <= range; ring++)
+        for (var x = -ring; x <= ring; x++)
+        for (var y = -ring; y <= ring; y++)
+        {
+            if (Math.Max(Math.Abs(x), Math.Abs(y)) != ring)
+                continue;
+
+            var candidate = blocked.Offset(new Vector2(x, y));
+            if (!GroundSiteClear(hull, candidate))
+                continue;
+
+            site = candidate;
+            return true;
+        }
+
+        site = default;
+        return false;
+    }
+
+    private void PopupCrew(FighterAircraftComponent aircraft, string message)
+    {
+        foreach (var seatUid in new[] { aircraft.FrontSeat, aircraft.RearSeat })
+            if (CompOrNull<FighterSeatComponent>(seatUid)?.Occupant is { } crew)
+                _popup.PopupEntity(message, crew, crew, PopupType.Medium);
     }
 
     /// <summary>Rechecked at both ends of the transition; occupants and obstructions never get crushed by landing.</summary>

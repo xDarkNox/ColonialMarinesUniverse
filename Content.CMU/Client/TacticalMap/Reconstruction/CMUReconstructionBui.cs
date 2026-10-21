@@ -13,8 +13,8 @@ using Timer = Robust.Shared.Timing.Timer;
 
 namespace Content.Client.CMU14.TacticalMap.Reconstruction;
 
-[UsedImplicitly]
-public class CMUReconstructionBui(EntityUid owner, Enum uiKey) : RMCPopOutBui<TacticalMapWindow>(owner, uiKey)
+[UsedImplicitly, Virtual]
+public partial class CMUReconstructionBui(EntityUid owner, Enum uiKey) : RMCPopOutBui<TacticalMapWindow>(owner, uiKey)
 {
     protected override TacticalMapWindow? Window { get; set; }
     protected bool UsingReconstruction { get; private set; }
@@ -81,7 +81,7 @@ public class CMUReconstructionBui(EntityUid owner, Enum uiKey) : RMCPopOutBui<Ta
         _actor = PlayerManager.LocalEntity;
         if (!_classic)
         {
-            _window = this.CreateWindow<CMUReconstructionWindow>();
+            _window = this.CreatePopOutableWindow<CMUReconstructionWindow>();
             var cache = EntMan.System<CMUReconstructionCacheSystem>();
             _window.LoadView = cache.GetView;
             _window.SaveView = cache.SaveView;
@@ -113,7 +113,7 @@ public class CMUReconstructionBui(EntityUid owner, Enum uiKey) : RMCPopOutBui<Ta
             _window.OnSend += SendMessage;
             _window.OnCancelOrder += SendMessage;
             _window.OnClear += () => SendMessage(new CMUReconClearOrdersMessage());
-            _window.OnClose += () => { StopSurveyRetry(); CloseCamera(); };
+            _window.OnFinalClose += () => { StopSurveyRetry(); CloseCamera(); };
             _window.OnClosing += Remember;
             _window.OnMapSelected += SelectMap;
             _window.OnLayerSelected += message =>
@@ -208,7 +208,7 @@ public class CMUReconstructionBui(EntityUid owner, Enum uiKey) : RMCPopOutBui<Ta
         if (message is CMUReconFeedbackMessage { LocalizationKey: "cmu-recon-no-map" } &&
             UiKey is not CMUReconstructionUiKey && UsingReconstruction)
         {
-            _window?.Dispose();
+            _window?.Release();
             _window = null;
             UsingReconstruction = false;
             OpenClassicWindow();
@@ -222,13 +222,14 @@ public class CMUReconstructionBui(EntityUid owner, Enum uiKey) : RMCPopOutBui<Ta
             CloseCamera();
             Remember();
             StopSurveyRetry();
+            _window?.DisposePopOut();
         }
         base.Dispose(disposing);
     }
 
     private void CloseCamera()
     {
-        _cameraWindow?.Dispose();
+        _cameraWindow?.Release();
         _cameraWindow = null;
     }
 

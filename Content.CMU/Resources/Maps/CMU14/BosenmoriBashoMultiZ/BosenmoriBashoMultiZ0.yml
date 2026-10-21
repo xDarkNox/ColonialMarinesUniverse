@@ -5,7 +5,7 @@ meta:
   forkId: ""
   forkVersion: ""
   time: 09/22/2026 09:27:06
-  entityCount: 28514
+  entityCount: 28513
 maps:
 - 1
 grids:
@@ -88839,14 +88839,15 @@ entities:
         14,13: 17906312118425092096
         14,14: 17361641481273145592
         15,13: 18446462598732840960
+    - type: CMUBreathingRequiredMap
     - type: MapAtmosphere
       space: False
       mixture:
         temperature: 293.15
         volume: 2500
         moles:
-          Oxygen: 21.8124
-          Nitrogen: 81.1594
+          Oxygen: 1.0297
+          Nitrogen: 101.9421
         immutable: True
     - type: ChunkContainer
       chunkEntities:
@@ -89029,13 +89030,6 @@ entities:
 - proto: AU14MagazineRifleL90M
   entities:
   - uid: 42267
-    components:
-    - type: Transform
-      parent: 1
-      pos: 36.5,13.5
-- proto: AU14MagazineRifleL90MHEAP
-  entities:
-  - uid: 42266
     components:
     - type: Transform
       parent: 1
@@ -99770,6 +99764,8 @@ entities:
   entities:
   - uid: 42276
     components:
+    - type: DropshipDestination
+      forceOnForceFaction: govfor
     - type: MetaData
       name: LZ2
     - type: Transform
@@ -99777,6 +99773,8 @@ entities:
       pos: 37.5,43.5
   - uid: 42277
     components:
+    - type: DropshipDestination
+      forceOnForceFaction: thirdparty
     - type: MetaData
       name: LZ1
     - type: Transform
@@ -99791,6 +99789,7 @@ entities:
       rot: 3.141592653589793 rad
       pos: 154.5,206.5
     - type: DropshipDestination
+      forceOnForceFaction: opfor
       canBePrimary: False
 - proto: CMFax
   entities:
@@ -218503,15 +218502,6 @@ entities:
     - type: Transform
       parent: 1
       pos: 149.5,70.5
-- proto: RMCBoxMagazineSMGM63HEAP
-  entities:
-  - uid: 40478
-    components:
-    - type: MetaData
-      name: magazine box (HEAP v9 x 12)
-    - type: Transform
-      parent: 1
-      pos: 34.5,10.5
 - proto: RMCBoxMousetraps
   entities:
   - uid: 50276
@@ -249502,4 +249492,17 @@ entities:
     - type: Transform
       parent: 1
       pos: 100.5,200.5
+- proto: CMUYautjaGroundRelayDestination
+  entities:
+  - uid: 56423
+    components:
+    - type: MetaData
+      name: Bosenmori Basho ground relay
+    - type: Transform
+      pos: 161.5,195.5
+      parent: 1
+    - type: YautjaRelayDestination
+      kind: Ground
+      id: bosenmori_basho.ground.relay
+      displayName: Bosenmori Basho Ground Relay
 ...

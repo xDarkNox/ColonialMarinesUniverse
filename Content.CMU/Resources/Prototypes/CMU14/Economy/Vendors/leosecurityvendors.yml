@@ -18,10 +18,6 @@
       - id: RMCHeadCapBureau
       - id: RMCBootsPMCFilled
       - id: CMGlassesSecurity
-    - name: Headgear
-      choices: { CMUCMBDutyHeadgear: 1 }
-      entries:
-      - id: AU14HeadCommandoBeanie
     - name: Outerwear
       choices: { CMUCMBDutyJacket: 1 }
       entries:
@@ -63,12 +59,31 @@
       entries:
       - id: RMCGunCasePistolM1984
       - id: AU14GunCasePistolHG45
+      - id: CMUGunCasePistolTPR9Civilian
+    - name: Long Arms
+      choices: { CMUCMBLongArms: 1 }
+      entries:
+      - id: CMUKitWeaponHG3712LEO
+      - id: CMUKitWeaponKramerEnforcerLEO
+      - id: CMUKitWeaponMP5LEO
     - name: Restraining Gear
       entries:
+      - id: CMUPepperSpray
+        amount: 10
+      - id: CMUPepperSprayAntidote
+        amount: 10
       - id: RMCHandcuffs
         amount: 10
       - id: RMCZipties
         amount: 30
+    - name: Investigation
+      entries:
+      - id: BoxEvidenceMarkers
+        amount: 4
+      - id: ForensicScanner
+        amount: 2
+      - id: ClothingHandsGlovesNitrile
+        amount: 10
     - name: Inmate Clothing
       entries:
       - id: AU14CivilianPrisonJumpsuit
@@ -140,6 +155,10 @@
       - id: RMCGunCasePistolM1984
     - name: Restraining Gear
       entries:
+      - id: CMUPepperSpray
+        amount: 10
+      - id: CMUPepperSprayAntidote
+        amount: 10
       - id: RMCHandcuffs
         amount: 10
       - id: RMCZipties
@@ -227,12 +246,28 @@
       choices: { CMUCMBDutyWeapons: 1 }
       entries:
       - id: AU14GunCasePistolL45
+    - name: Long Arms
+      choices: { CMUCMBLongArms: 1 }
+      entries:
+      - id: CMUKitWeaponHG3712LEO
+      - id: CMUKitWeaponKramerEnforcerLEO
+      - id: CMUKitWeaponMP5LEO
     - name: Restraining Gear
       entries:
+      - id: CMUPepperSpray
+        amount: 10
+      - id: CMUPepperSprayAntidote
+        amount: 10
       - id: RMCHandcuffs
         amount: 10
       - id: RMCZipties
         amount: 30
+    - name: Investigation
+      entries:
+      - id: BoxEvidenceMarkers
+        amount: 4
+      - id: ForensicScanner
+        amount: 2
     - name: Inmate Clothing
       entries:
       - id: AU14CivilianPrisonJumpsuit
@@ -302,6 +337,10 @@
       - id: RMCBeltHolsterPistolSPPT73
     - name: Restraining Gear
       entries:
+      - id: CMUPepperSpray
+        amount: 10
+      - id: CMUPepperSprayAntidote
+        amount: 10
       - id: RMCHandcuffs
         amount: 10
       - id: RMCZipties

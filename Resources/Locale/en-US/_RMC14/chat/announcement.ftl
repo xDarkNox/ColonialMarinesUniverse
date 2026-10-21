@@ -39,6 +39,10 @@ rmc-announcement-dropship-message = [color=#CECECE][font size=16][bold]Dropship 
 
     {$message}[/bold][/font][/color]
 
+rmc-announcement-anti-air = [color=#CECECE][font size=16][bold]IX-50 MGAD System[/bold][/font][/color][color=red][font size=16][bold]
+
+    {$message}[/bold][/font][/color]
+
 rmc-announcement-emergency-dropship-crash = [font size=14][bold][color=#CECECE]EMERGENCY[/color][/bold][/font][font size=16][color=red]
   DROPSHIP ON COLLISION COURSE. CRASH IMMINENT.[/color][/font]
 
@@ -47,6 +51,8 @@ rmc-announcement-delta = [color=#CECECE][font size=16][bold]SELF-DESTRUCT SYSTEM
 rmc-announcement-general-quarters = ATTENTION! GENERAL QUARTERS. ALL HANDS, MAN YOUR BATTLESTATIONS.
 
 rmc-announcement-dropship-hijack = Unscheduled dropship departure detected from operational area. Hijack likely. Shutting down autopilot.
+# CMU14: human hijack announcement.
+rmc-announcement-dropship-hijack-human = Hostile personnel have hijacked a dropship. All personnel, prepare to repel boarders.
 
 rmc-announcement-dropship-hijack-hive = The Queen has commanded the metal bird to depart for the metal hive in the sky! Rejoice!
 

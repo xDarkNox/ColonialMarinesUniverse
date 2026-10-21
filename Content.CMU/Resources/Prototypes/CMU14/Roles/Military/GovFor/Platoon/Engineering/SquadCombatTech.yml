@@ -58,6 +58,9 @@
         RMCSkillPolice: 1
 
   requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 7200 # 2 hours
   - !type:TraitsRequirement
     inverted: true
     traits:
@@ -71,6 +74,9 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:

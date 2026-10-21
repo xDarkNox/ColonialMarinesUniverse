@@ -40,15 +40,17 @@
 
   name: au14-job-name-clfsurgeon
   description: au14-job-description-clfsurgeon
-  setPreference: true
+  setPreference: false
   ignoreAllegiance: true
   playTimeTracker: AU14JobCLFSurgeon
   requirements:
+  - !type:OverallPlaytimeRequirement
+    time: 43200 # 12 hours
   - !type:DepartmentTimeRequirement
     department: AU14DepartmentColonialLiberationFront
     time: 18000 # 5 hours
-  - !type:DepartmentTimeRequirement
-    department: AU14DepartmentColonyMedical
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsMedical
     time: 18000 # 5 hours
   - !type:TraitsRequirement
     inverted: true

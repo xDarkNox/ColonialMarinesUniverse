@@ -10,6 +10,7 @@ using Content.Shared._RMC14.Xenonids;
 using Content.Shared._RMC14.Xenonids.Weeds;
 using Content.Shared.CMU14.ZLevels.Core.Components;
 using Content.Shared._RMC14.Dropship;
+using Content.Shared.Access.Systems;
 using Content.Shared.Buckle.Components;
 using Content.Shared.Damage;
 using Content.Shared.Damage.Systems;
@@ -51,6 +52,7 @@ public sealed partial class MohawkSystem : EntitySystem
     [Dependency] private ThrowingSystem _throwing = default!;
     [Dependency] private IRobustRandom _random = default!;
     [Dependency] private CMUZLevelsSystem _zLevels = default!;
+    [Dependency] private AccessReaderSystem _accessReader = default!;
 
     private static readonly SoundSpecifier RampSound = new SoundPathSpecifier("/Audio/CMU14/Dropships/Mohawk/omaha_ramp.ogg");
     private static readonly SoundSpecifier HatchSound = new SoundPathSpecifier("/Audio/CMU14/Dropships/Mohawk/nightcustard_motor_whirring.ogg");
@@ -147,6 +149,13 @@ public sealed partial class MohawkSystem : EntitySystem
         if (HasComp<XenoComponent>(args.User))
         {
             TrySabotage(control, args.User);
+            return;
+        }
+        // The side doors stay open to everyone; only the boarding ramp and ladder are crew-restricted.
+        if (control.Comp.Group is MohawkControlGroup.Ramp or MohawkControlGroup.Hatch &&
+            !_accessReader.IsAllowed(args.User, control))
+        {
+            _popup.PopupEntity(Loc.GetString("cmu-mohawk-controls-no-access"), control, args.User);
             return;
         }
         if (mechanisms.BrokenControls.Contains(control.Comp.Group))
@@ -262,6 +271,9 @@ public sealed partial class MohawkSystem : EntitySystem
             {
                 var ladder = EnsureComp<CMUZLevelLadderComponent>(uid);
                 ladder.Offset = upper ? -1 : 1;
+                // Ladder activation chooses direction from these flags, not the offset's sign.
+                ladder.CanMoveUp = !upper;
+                ladder.CanMoveDown = upper;
                 ladder.StartSound = new SoundPathSpecifier("/Audio/CMU14/Dropships/Mohawk/mountain852_climbing_ladder_initial.ogg");
                 ladder.FinishSound = new SoundPathSpecifier("/Audio/CMU14/Dropships/Mohawk/mountain852_climbing_ladder_human_after.ogg");
                 Dirty(uid, ladder);
@@ -357,6 +369,24 @@ public sealed partial class MohawkSystem : EntitySystem
         var parts = GetShipEntities(ship);
         var vehicles = CollectRampVehicles(ship, mechanisms, parts, deployedStages);
         var descending = new List<(EntityUid Rider, Vector2 Position)>();
+        var supportedRiders = new HashSet<EntityUid>();
+        List<float>? transitionCurve = null;
+        foreach (var part in parts)
+        {
+            if (!TryComp<MohawkRampSegmentComponent>(part, out var segment) || !segment.Lower)
+                continue;
+
+            transitionCurve ??= segment.HeightCurve;
+            if (!HasComp<CMUZLevelHighGroundComponent>(part))
+                continue;
+
+            foreach (var rider in GetRampOccupants(part))
+            {
+                if (TryComp<CMUZPhysicsComponent>(rider, out var physics) &&
+                    MathF.Abs(_zLevels.DistanceToGround((rider, physics), out _)) < 0.01f)
+                    supportedRiders.Add(rider);
+            }
+        }
         foreach (var marker in mechanisms.CabinRampMarkers.Keys)
         {
             if (!parts.Contains(marker))
@@ -423,17 +453,6 @@ public sealed partial class MohawkSystem : EntitySystem
                             _throwing.TryThrow(victim.Owner, new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 4, baseThrowSpeed: 3f);
                         }
                     }
-                    // Only ramp-10/11/12 rise between decks, using the ordinary
-                    // multi-Z stair profile. The two outer rows are flat ground.
-                    if (segment.HeightCurve is { } curve)
-                    {
-                        var support = EnsureComp<CMUZLevelHighGroundComponent>(uid);
-                        support.HeightCurve = new(curve);
-                        support.Stick = true;
-                        support.AllowVehicles = false;
-                        support.PreviewGrid = mechanisms.RampPreviewFullDeck ? ship : null;
-                        Dirty(uid, support);
-                    }
                 }
                 else
                 {
@@ -454,8 +473,23 @@ public sealed partial class MohawkSystem : EntitySystem
                             }
                         }
                     }
-                    RemComp<CMUZLevelHighGroundComponent>(uid);
                 }
+                // While moving, the edge next to the remaining cabin floor is
+                // still a slope. Waiting for the final stair row leaves a full
+                // deck drop at the freshly opened edge between animation steps.
+                var transition = deployedStages is 2 or 3 && segment.Stage == deployedStages;
+                var curve = transition ? transitionCurve : deployed ? segment.HeightCurve : null;
+                if (curve != null)
+                {
+                    var support = EnsureComp<CMUZLevelHighGroundComponent>(uid);
+                    support.HeightCurve = new(curve);
+                    support.Stick = true;
+                    support.AllowVehicles = false;
+                    support.PreviewGrid = mechanisms.RampPreviewFullDeck ? ship : null;
+                    Dirty(uid, support);
+                }
+                else
+                    RemComp<CMUZLevelHighGroundComponent>(uid);
                 if (segment.Stage == 4)
                 {
                     _physics.SetCanCollide(uid, deployed);
@@ -464,7 +498,7 @@ public sealed partial class MohawkSystem : EntitySystem
                     else
                         RemComp<ZLevelWallSupportComponent>(uid);
                 }
-                _appearance.SetData(uid, MohawkVisuals.Deployed, deployed);
+                _appearance.SetData(uid, MohawkVisuals.Deployed, deployed || transition);
                 segment.Deployed = deployed;
             }
         }
@@ -484,6 +518,17 @@ public sealed partial class MohawkSystem : EntitySystem
                     _zLevels.SetZVelocity((rider, physics), 0f);
                 }
             }
+        }
+        // Carry anyone already on a slope when the next animation step lowers
+        // it, instead of letting gravity treat the changing height as a fall.
+        foreach (var rider in supportedRiders)
+        {
+            if (!TryComp<CMUZPhysicsComponent>(rider, out var physics))
+                continue;
+
+            var distance = _zLevels.DistanceToGround((rider, physics), out _);
+            _zLevels.SetZLocalPosition((rider, physics), MathF.Max(0, physics.LocalPosition - distance));
+            _zLevels.SetZVelocity((rider, physics), 0f);
         }
         MoveRampVehicles(ship, vehicles, deployedStages != 0);
     }

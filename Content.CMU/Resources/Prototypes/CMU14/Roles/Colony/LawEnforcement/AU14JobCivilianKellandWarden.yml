@@ -29,16 +29,19 @@
 
   name: au14-job-name-civiliankellandwarden
   description: au14-job-description-civiliankellandwarden
-  setPreference: true
+  setPreference: false
   playTimeTracker: AU14JobCivilianKellandWarden
   ranks:
     RMCRankCivilian: [ ]
   startingGear: AU14GearCivilianKellandWarden
   requirements:
+  - !type:OverallPlaytimeRequirement
+    time: 7200 # 2 hours
   - !type:TraitsRequirement
     inverted: true
     traits:
     - NoEnglish
+    - CMUBadLeg
   icon: "AU14JobIconColonyKellandWarden"
   hasIcon: false
   requireAdminNotify: false

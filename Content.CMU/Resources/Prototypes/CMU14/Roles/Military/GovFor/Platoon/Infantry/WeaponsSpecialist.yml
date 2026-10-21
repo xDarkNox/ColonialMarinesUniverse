@@ -37,6 +37,9 @@
         state: ws
 
   requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 10800 # 3 hours
   - !type:TraitsRequirement
     inverted: true
     traits:
@@ -49,6 +52,9 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:

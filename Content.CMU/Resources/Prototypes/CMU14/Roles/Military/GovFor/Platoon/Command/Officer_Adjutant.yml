@@ -36,6 +36,8 @@
   - type: ANPRCCryptoAuthority
   - type: AU14SilenceOrderAbility
   - type: AU14CallToAttentionAbility
+    canCall: false
+    attentionFocusPriority: 250
   - type: AU14CallToAttentionImmune
   - type: Skills
     preset: AU14SkillPresetOfficerAdjutant
@@ -63,7 +65,11 @@
     # - type: JobPrefix
     #   prefix: au14-job-prefix-govforadjutantCMBCIU
   requirements:
-  - !type:OverallPlaytimeRequirement
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 36000 # 10 hours
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsMilitaryCommand
     time: 18000 # 5 hours
   - !type:AgeRequirement
     requiredAge: 30
@@ -79,6 +85,9 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:
@@ -213,7 +222,13 @@
   parent: AU14JobAdjutantBase
   id: AU14JobGOVFORAdjutantUPP
   roundForce: UPP
-  requirements: []
+  requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 36000 # 10 hours
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsMilitaryCommand
+    time: 18000 # 5 hours
   name: Executive Officer
   spawnMenuRoleName: Executive Officer (UPP)
   ranks:
@@ -231,7 +246,13 @@
   parent: AU14JobAdjutantBase
   id: AU14JobGOVFORAdjutantWYPMC
   roundForce: WYPMC
-  requirements: []
+  requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 36000 # 10 hours
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsMilitaryCommand
+    time: 18000 # 5 hours
   name: PMC Deputy Director
   spawnMenuRoleName: Executive Officer (WYPMC)
   ranks:

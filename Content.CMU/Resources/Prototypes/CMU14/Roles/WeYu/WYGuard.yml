@@ -12,6 +12,8 @@
   id: AU14JobWYGuard
   roundSide: Civilian
   roundForce: WY
+  roundProfiles:
+  - AU14RoundJobProfileThirdParty
   roundRole: WYGuard
   roundComponents:
   - type: Skills
@@ -62,6 +64,8 @@
   icon: "RMCJobIconPMCGoonStandard"
   requireAdminNotify: false
   requirements:
+  - !type:OverallPlaytimeRequirement
+    time: 18000 # 5 hours
   - !type:AgeRequirement
     requiredAge: 21
   - !type:TraitsRequirement

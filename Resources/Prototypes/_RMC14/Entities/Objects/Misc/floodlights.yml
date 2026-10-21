@@ -8,6 +8,7 @@
     instantDestroy: true
     passOnDestroy: true
   - type: VehicleSmashable
+    minDestroyWeightClass: Light
   - type: Transform
     anchored: true
   - type: Physics
@@ -87,7 +88,7 @@
     mode: SnapgridCenter
   components:
   - type: VehicleSmashable
-    selfDamageMultiplier: 0
+    selfDamageMultiplier: 0.25 # CMU14: unplowed light-pole impacts still damage the vehicle.
   - type: Transform
     anchored: true
   - type: Physics
@@ -223,6 +224,7 @@
     isCorrodible: false
   - type: Appearance
   - type: Eye
+  - type: CMUWarshipExteriorLight # CMU14: hull floodlight switches off on red alert, see CMUWarshipAlertLightsSystem
 
 - type: entity
   abstract: true
@@ -415,7 +417,7 @@
     mode: SnapgridCenter
   components:
   - type: VehicleSmashable
-    selfDamageMultiplier: 0
+    selfDamageMultiplier: 0.25 # CMU14: unplowed light-pole impacts still damage the vehicle.
   - type: Transform
     anchored: true
   - type: Physics

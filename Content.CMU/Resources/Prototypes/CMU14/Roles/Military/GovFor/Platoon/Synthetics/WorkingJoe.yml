@@ -63,6 +63,7 @@
     - CMUProstheticRightLeg
     - SlowRunner
     - Anemic
+    - CMUBadLeg
 - type: entity
   parent: CMSpawnPointJobBase
   id: AU14SpawnPointGOVFORWorkingJoe
@@ -90,6 +91,7 @@
     - Epilepsy
     - SlowRunner
     - Anemic
+    - CMUBadLeg
 
 - type: entity
   parent: CMSpawnPointJobBase

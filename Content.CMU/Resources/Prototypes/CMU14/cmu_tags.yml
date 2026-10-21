@@ -8,6 +8,24 @@
   id: CMUYautjaToolbelt
 
 - type: Tag
+  id: CMUYautjaHerbalMedicine
+
+- type: Tag
+  id: CMUYautjaMedicompItem
+
+- type: Tag
+  id: CMUYautjaDuellingKnife
+
+- type: Tag
+  id: CMUYautjaPlasmaPistol
+
+- type: Tag
+  id: CMUYautjaArrow
+
+- type: Tag
+  id: CMUYautjaBow
+
+- type: Tag
   id: CMUCombatSidearmRig
 
 - type: Tag
@@ -75,3 +93,12 @@
 
 - type: Tag
   id: MaintenanceJack
+
+- type: Tag
+  id: CMUEvidenceMarker
+
+- type: Tag
+  id: CMUCassettePouch
+
+- type: Tag
+  id: CMUCanOpener

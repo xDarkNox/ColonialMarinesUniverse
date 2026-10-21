@@ -60,6 +60,7 @@ public abstract partial class CMUSharedZLevelsSystem : EntitySystem
 
         InitBuckle();
         InitMovement();
+        InitHover();
         InitThrowing();
         InitView();
     }

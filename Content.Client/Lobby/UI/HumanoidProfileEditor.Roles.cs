@@ -8,6 +8,7 @@ using Content.Shared.CMU14.Marines.Roles.Chevrons;
 using Content.Shared.CMU14.Roles.Ranks;
 using Content.Shared._RMC14.Marines.Roles.Ranks;
 using Content.Shared._RMC14.Prototypes;
+using Content.Shared._RMC14.Rules; // CMU14
 using Content.Shared.CMU14.util;
 using Content.Shared.CCVar;
 using Content.Shared.Clothing;
@@ -42,19 +43,30 @@ public sealed partial class HumanoidProfileEditor
     {
         foreach (var (gamemode, jobId, selector) in _jobPriorities)
         {
-            var priority = Profile?.GetJobPriorityForGamemode(gamemode, jobId) ?? JobPriority.Never;
+            // CMU14: faction gameplay fixes.
+            var priority = gamemode == GamemodeForceOnForce && _prototypeManager.TryIndex<JobPrototype>(jobId, out var job)
+                ? Profile?.GetForceOnForceJobPriority(job, _prototypeManager) ?? JobPriority.Never
+                : Profile?.GetJobPriorityForGamemode(gamemode, jobId) ?? JobPriority.Never;
             selector.Select((int) priority);
         }
+    // CMU14: faction gameplay fixes.
+    }
+
+    private void SetJobPriority(string gamemode, string jobId, JobPriority priority)
+    {
+        Profile = gamemode == GamemodeForceOnForce && _prototypeManager.TryIndex<JobPrototype>(jobId, out var job)
+            ? Profile?.WithForceOnForceJobPriority(job, priority, _prototypeManager)
+            : Profile?.WithGamemodeJobPriority(gamemode, jobId, priority);
     }
 
     public void RefreshLoadouts()
     {
-        _loadoutWindow?.Dispose();
+        _loadoutWindow?.Release();
     }
 
     private void OpenLoadout(JobPrototype jobProto, RoleLoadout roleLoadout, RoleLoadoutPrototype roleLoadoutProto)
     {
-        _loadoutWindow?.Dispose();
+        _loadoutWindow?.Release();
         _loadoutWindow = null;
         var collection = IoCManager.Instance;
 
@@ -109,7 +121,7 @@ public sealed partial class HumanoidProfileEditor
     public void RefreshJobs()
     {
         foreach (var list in GetGamemodeJobLists())
-            list.DisposeAllChildren();
+            list.ReleaseChildren();
 
         _jobCategories.Clear();
         _jobPriorities.Clear();
@@ -225,7 +237,8 @@ public sealed partial class HumanoidProfileEditor
         selector.OnSelected += selectedPriority =>
         {
             var selectedJobPriority = (JobPriority) selectedPriority;
-            Profile = Profile?.WithGamemodeJobPriority(gamemode, job.ID, selectedJobPriority);
+            // CMU14: faction gameplay fixes.
+            SetJobPriority(gamemode, job.ID, selectedJobPriority);
 
             foreach (var (otherGamemode, jobId, other) in _jobPriorities)
             {
@@ -242,7 +255,8 @@ public sealed partial class HumanoidProfileEditor
                     continue;
 
                 other.Select((int) JobPriority.Medium);
-                Profile = Profile?.WithGamemodeJobPriority(gamemode, jobId, JobPriority.Medium);
+                // CMU14: faction gameplay fixes.
+                SetJobPriority(gamemode, jobId, JobPriority.Medium);
             }
 
             ReloadPreview();
@@ -306,6 +320,8 @@ public sealed partial class HumanoidProfileEditor
 
     private IEnumerable<BoxContainer> GetGamemodeJobLists()
     {
+        // CMU14: shared FoF role priorities.
+        yield return FoFJobList;
         yield return InsurgencyGovernmentJobList;
         yield return InsurgencyInsurgentJobList;
         yield return InsurgencyCivilianJobList;
@@ -374,6 +390,14 @@ public sealed partial class HumanoidProfileEditor
         JobPrototype job,
         string departmentName)
     {
+        // CMU14: shared FoF role priorities.
+        if (department.Faction == "govfor")
+        {
+            var (key, title) = GetMilitaryJobSegment(job);
+            // CMU14: faction gameplay fixes.
+            yield return (FoFJobList, GamemodeForceOnForce, $"fof-{key}", title);
+        }
+
         if (department.Faction == "govfor")
         {
             var (segmentKey, segmentTitle) = GetMilitaryJobSegment(job);
@@ -549,9 +573,9 @@ public sealed partial class HumanoidProfileEditor
 
     public void RefreshAntags()
     {
-        InsurgencyAntagList.DisposeAllChildren();
-        ColonyAntagList.DisposeAllChildren();
-        DistressAntagList.DisposeAllChildren();
+        InsurgencyAntagList.ReleaseChildren();
+        ColonyAntagList.ReleaseChildren();
+        DistressAntagList.ReleaseChildren();
         _antagPreferences.Clear();
 
         PopulateAntagPreferences(InsurgencyAntagList, GamemodeInsurgency);
@@ -675,8 +699,20 @@ public sealed partial class HumanoidProfileEditor
     private PlatoonRankPreferenceJobEntry? BuildRankPreferenceJobEntry(JobPrototype job)
     {
         var platoonOptions = new List<PlatoonRankOptions>();
+
+        // CMU14: only platoons a planet can actually vote in, shelved ones like BEAR stay hidden
+        var playable = new HashSet<ProtoId<PlatoonPrototype>>();
+        foreach (var planet in _entManager.System<RMCPlanetSystem>().GetAllPlanets())
+        {
+            playable.UnionWith(planet.Comp.PlatoonsGovfor);
+            playable.UnionWith(planet.Comp.PlatoonsOpfor);
+        }
+
         foreach (var platoon in _prototypeManager.EnumeratePrototypes<PlatoonPrototype>())
         {
+            if (!playable.Contains(platoon.ID))
+                continue;
+
             var chevronMap = ResolveChevronMapForPlatoon(job, platoon);
             if (chevronMap == null || chevronMap.Count == 0)
                 continue;
@@ -702,7 +738,7 @@ public sealed partial class HumanoidProfileEditor
 
             platoonOptions.Add(new PlatoonRankOptions(
                 platoon.ID,
-                platoon.Name,
+                Loc.GetString(platoon.Name), // CMU14: Hardcode localization
                 platoon.PlatoonPatch,
                 ranks));
         }

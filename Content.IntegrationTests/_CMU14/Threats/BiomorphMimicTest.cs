@@ -1,7 +1,10 @@
 using Content.IntegrationTests.Fixtures;
 using Content.IntegrationTests.Fixtures.Attributes;
-using Content.Server._RMC14.Speech.Components;
 using Content.Server.CMU14.Threats.Mobs.Biomorph;
+using Content.Server._RMC14.Language.Systems;
+using Content.Shared._RMC14.Language.Components;
+using Content.Server._RMC14.Speech.Components;
+
 using Content.Server.Humanoid;
 using Content.Server.Mind;
 using Content.Server.Polymorph.Components;
@@ -113,10 +116,19 @@ public sealed class BiomorphMimicTest : GameTest
             mind = mindSystem.CreateMind(null).Owner;
             mindSystem.TransferTo(mind, mimic);
 
+            var languages = SEntMan.System<LanguageSystem>();
+            languages.SetExclusiveLanguage(mimic, "Primitive");
+            languages.AddLanguage(mimic, "English");
+
             disguised = mimicSystem.StartDisguise((mimic, mimicComponent), profile, TimeSpan.FromMinutes(1))
                 ?? throw new AssertionException("Mimic failed to enter a humanoid disguise.");
 
             AssertHumanoidDisguise(disguised, profile);
+            var originalLanguages = SEntMan.GetComponent<LanguageComponent>(mimic);
+            var disguisedLanguages = SEntMan.GetComponent<LanguageComponent>(disguised);
+            Assert.That(disguisedLanguages.SpokenLanguages, Is.EquivalentTo(originalLanguages.SpokenLanguages));
+            Assert.That(disguisedLanguages.UnderstoodLanguages, Is.EquivalentTo(originalLanguages.UnderstoodLanguages));
+            Assert.That(disguisedLanguages.SpokenLanguages, Does.Contain(new ProtoId<Content.Shared._RMC14.Language.Prototypes.LanguagePrototype>("Primitive")));
             Assert.That(SEntMan.GetComponent<Content.Shared.Mind.MindComponent>(mind).CurrentEntity,
                 Is.EqualTo(disguised));
 

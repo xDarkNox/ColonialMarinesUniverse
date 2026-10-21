@@ -12,6 +12,11 @@ public sealed partial class CMUZLevelsCVars : CVars
     public static readonly CVarDef<bool> RenderEnabled =
         CVarDef.Create("cmu.zlevels.render_enabled", true, CVar.CLIENTONLY | CVar.ARCHIVE);
 
+    // on: shots go to whatever level the cursor is showing. off: you stay on your level
+    // unless you flip the shoot down hotkey
+    public static readonly CVarDef<bool> LookAim =
+        CVarDef.Create("cmu.zlevels.look_aim", true, CVar.CLIENTONLY | CVar.ARCHIVE);
+
     // AU14 (building overhaul): rooftop awareness. Stage 1 of the look-up action cycle ghosts the level
     // directly above at low alpha while the viewer is not under a ceiling. This cvar force-disables it.
     public static readonly CVarDef<bool> FaintUpperEnabled =
@@ -41,6 +46,10 @@ public sealed partial class CMUZLevelsCVars : CVars
 
     public static readonly CVarDef<float> ProbeUpdateHz =
         CVarDef.Create("cmu.zlevels.probe_update_hz", 4.0f, CVar.REPLICATED | CVar.SERVER);
+
+    /// <summary>Wall-time budget for queued viewer visibility discovery; existing eyes still move every tick.</summary>
+    public static readonly CVarDef<float> ProbeBudgetMs =
+        CVarDef.Create("cmu.zlevels.probe_budget_ms", 2f, CVar.SERVER);
 
     public static readonly CVarDef<int> MaxViewProbesPerPlayer =
         CVarDef.Create("cmu.zlevels.max_view_probes_per_player", 5, CVar.REPLICATED | CVar.SERVER);

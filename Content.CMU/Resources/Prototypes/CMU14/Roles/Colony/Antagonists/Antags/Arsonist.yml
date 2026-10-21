@@ -44,6 +44,11 @@
     antagPrototype: ArsonistRole
     exclusiveAntag: true
     roleType: SoloAntagonist
+    subtype: cmu-role-subtype-arsonist
+  - type: CMUAdminRoleIcon
+    icon:
+      sprite: /Textures/_RMC14/Interface/cm_job_icons.rsi
+      state: hudsquad_spec_pyro
 
 - type: antag
   parent: CMUAntagColonyBase
@@ -54,6 +59,5 @@
 
 - type: startingGear
   id: CMUGearArsonist
-  equipment:
-    suitstorage: CMUWeaponArsonistFlamer
-    pocket2: CMUTankFlamerPhoron
+  inhand:
+  - RMCLighter

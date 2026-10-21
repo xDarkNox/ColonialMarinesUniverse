@@ -41,6 +41,9 @@
         state: rto
 
   requirements:
+  - !type:TotalDepartmentsTimeRequirement
+    group: CMUDepartmentsMilitary
+    time: 7200 # 2 hours
   - !type:TraitsRequirement
     inverted: true
     traits:
@@ -49,6 +52,9 @@
     - NoEnglish
     - SlowRunner
     - Anemic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
   ranks:
     RMCRankCivilian: []
   chevrons:

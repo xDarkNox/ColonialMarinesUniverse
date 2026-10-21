@@ -23,6 +23,7 @@
   roundProfiles:
   - AU14RoundJobProfileMilitaryBase
   roundComponents:
+  - type: AU14CallToAttentionAbility
   - type: AU14CallsignRole
     suffix: "6"
     commandElement: true
@@ -51,13 +52,22 @@
     icon:
       sprite: /Textures/CMU14/Interface/au14govforjobicons.rsi
       state: govfor_vcc
+  - type: CMVendorUser
+    id: AU14JobGOVFORVehicleCommander
+    points: 50
   roundForceComponents:
     OPFOR:
     - type: TacticalMapIcon
       icon:
         sprite: /Textures/CMU14/Interface/au14opforjobicons.rsi
         state: vcc
+    - type: CMVendorUser
+      id: AU14JobOPFORVehicleCommander
+      points: 50
   requirements:
+  - !type:TotalJobsTimeRequirement
+    group: CMUJobsVehicleCrew
+    time: 18000 # 5 hours
 #  - !type:RoleTimeRequirement
 #    role: AU14JobGOVFORVehicleCrewman
 #    time: 14400 # 4 hours
@@ -77,6 +87,10 @@
     - SlowRunner
     - Anemic
     - Asthmatic
+    - CMUAlcoholic
+    - CMUDrugAddict
+    - CMUBadLeg
+    - CMUMotionSick
   ranks:
     RMCRankCivilian: []
   chevrons:
