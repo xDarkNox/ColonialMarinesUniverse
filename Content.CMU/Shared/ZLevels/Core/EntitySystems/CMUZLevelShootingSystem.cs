@@ -419,7 +419,8 @@ public sealed partial class CMUZLevelShootingSystem : EntitySystem
 
         // Keep the projectile physics on the opening path, but shift its sprite to
         // the barrel position in the compensated Z render pass.
-        visualOffset = sourceFromCoordinates.Position - GetCrossZRenderOffset(offset) - projectileFromCoordinates.Position;
+        var renderOffset = new Vector2(0f, _zLevels.GetZLevelVisualOffset(Transform(shooter).MapUid) * offset);
+        visualOffset = sourceFromCoordinates.Position - renderOffset - projectileFromCoordinates.Position;
         return visualOffset.LengthSquared() > 0.001f;
     }
 
@@ -499,11 +500,6 @@ public sealed partial class CMUZLevelShootingSystem : EntitySystem
 
         var distance = Math.Max(1f, direction.Length());
         projectileTo = projectileFrom + Vector2.Normalize(direction) * distance;
-    }
-
-    private static Vector2 GetCrossZRenderOffset(int offset)
-    {
-        return new Vector2(0f, CMUSharedZLevelsSystem.ZLevelVisualOffset * offset);
     }
 
     private static Vector2 NudgeOpeningTowardSource(Vector2 opening, Vector2 source)

@@ -25,6 +25,7 @@ using Content.Shared._RMC14.Vendors;
 using Content.Shared._RMC14.Ladder;
 
 using Content.Shared.CMU14;
+using Content.Shared.CMU14.ZLevels.Core.EntitySystems;
 
 namespace Content.Server.CMU14.Round;
 
@@ -43,6 +44,7 @@ public sealed partial class PlatoonSpawnRuleSystem : GameRuleSystem<PlatoonSpawn
     [Dependency] private SharedTransformSystem _transform = default!;
     [Dependency] private FactionSwapSystem _factionSwap = default!;
     [Dependency] private MultiDeckDropshipSystem _multiDeck = default!;
+    [Dependency] private CMUSharedZLevelsSystem _zLevels = default!;
 
     // Store selected platoons in the system
     private PlatoonPrototype? _selectedGovforPlatoon;
@@ -100,7 +102,6 @@ public sealed partial class PlatoonSpawnRuleSystem : GameRuleSystem<PlatoonSpawn
         // --- SHIP VENDOR MARKER LOGIC ---
         if ((planetComp.GovforInShip || planetComp.OpforInShip))
         {
-            var usedShipMarkers = new HashSet<EntityUid>();
             var factionShipsQuery = AllEntityQuery<ShipFactionComponent>();
             while (factionShipsQuery.MoveNext(out var shipUid, out var shipFaction))
             {
@@ -263,6 +264,10 @@ public sealed partial class PlatoonSpawnRuleSystem : GameRuleSystem<PlatoonSpawn
     {
         if (platoon == null)
             return;
+
+        // Almayer assigns its hangars once using the selected platoon's airframes.
+        if (UsesShipDestination(planetComp, faction) && TryInitializeAlmayerDropships(faction))
+            dropshipCount = 0;
 
         var mapRandom = new Random();
         var dropships = platoon.CompatibleDropships.ToList();
@@ -571,6 +576,61 @@ public sealed partial class PlatoonSpawnRuleSystem : GameRuleSystem<PlatoonSpawn
 
             phoneComp.Faction = faction;
             Dirty(phoneUid, phoneComp);
+        }
+    }
+
+    public void SpawnShipVendors(EntityUid shipUid, PlatoonPrototype platoon, string faction)
+    {
+        var shipTransform = Transform(shipUid);
+        var shipMarkers = AllEntityQuery<VendorMarkerComponent>();
+        while (shipMarkers.MoveNext(out var markerUid, out var markerComp))
+        {
+            var transform = _entityManager.GetComponent<TransformComponent>(markerUid);
+            if (!markerComp.Ship ||
+                !_factionSwap.IsMarkerOnShipOrZLevel(shipUid, shipTransform, transform) ||
+                markerComp.Spawned)
+            {
+                continue;
+            }
+
+            if (markerComp.Class == PlatoonMarkerClass.DropshipDestination)
+            {
+                string dropshipDestinationProtoId = "CMDropshipDestinationHome";
+                var dropshipEntity = _entityManager.SpawnAttachedTo(dropshipDestinationProtoId, transform.Coordinates, rotation: transform.LocalRotation);
+                markerComp.Spawned = true;
+                // Inherit the metadata name from the marker
+                if (_entityManager.TryGetComponent<MetaDataComponent>(markerUid, out var markerMeta) &&
+                    _entityManager.TryGetComponent<MetaDataComponent>(dropshipEntity, out var destMeta))
+                {
+                    _metaData.SetEntityName(dropshipEntity, markerMeta.EntityName, destMeta);
+                }
+                _sharedDropshipSystem.SetFactionController(dropshipEntity, faction);
+                _sharedDropshipSystem.SetDestinationType(dropshipEntity, "Dropship");
+                continue;
+            }
+
+
+            // --- VENDOR MARKER LOGIC (shipside) ---
+            // Ignore markerComp.Govfor/Opfor, use platoon and markerComp.Class
+            if (TryResolvePlatoonVendor(platoon, markerComp.Class, out var vendorProtoId))
+            {
+                if (_prototypeManager.TryIndex<EntityPrototype>(vendorProtoId, out var vendorProto))
+                {
+                    // SpawnEntity has no rotation parameter, so spawn attached to keep the marker's rotation
+                    var spawned = _entityManager.SpawnAttachedTo(vendorProto.ID, transform.Coordinates, rotation: transform.LocalRotation);
+                    markerComp.Spawned = true;
+                    SetRequisitionsVendorAccess(spawned, markerComp.Class, faction);
+                    if (_entityManager.TryGetComponent<RotaryPhoneComponent>(spawned, out var spawnedPhone))
+                    {
+                        if (!string.IsNullOrEmpty(faction))
+                        {
+                            spawnedPhone.Faction = faction;
+                            Dirty(spawned, spawnedPhone);
+                        }
+                    }
+                }
+            }
+
         }
     }
 

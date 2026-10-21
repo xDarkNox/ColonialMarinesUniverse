@@ -547,6 +547,13 @@ public sealed partial class DropshipSystem : SharedDropshipSystem
     // CMU14 method: validate and place the deck assembly before committing flight.
     public override bool FlyTo(Entity<DropshipNavigationComputerComponent> computer, EntityUid destination, EntityUid? user, bool hijack = false, float? startupTime = null, float? hyperspaceTime = null, bool offset = false)
     {
+        // CMU14: falling and jumping ships cannot accept incoming flights.
+        if (!EntityManager.System<Content.Shared.CMU14.Hijack.CMUShipHijackSystem>().CanArrive(destination))
+        {
+            if (user is { } pilot)
+                _popup.PopupEntity(Loc.GetString("cmu-hijack-launch-unavailable"), computer, pilot);
+            return false;
+        }
         // CMU14: Force on Force roles, hijacking, announcements and identification.
         if (!hijack && user is { } actor && !CanUseNavigation(computer, actor))
         {
@@ -764,6 +771,15 @@ public sealed partial class DropshipSystem : SharedDropshipSystem
             RaiseLocalEvent(dropshipId.Value, ref hijackFlight);
         }
 
+        // CMU14: Almayer's decks are separate grids. Grid-relative FTL targets are
+        // treated as docking requests and fall back to a random point outside the
+        // hull when no docking port exists; dropships must land on the exact marker.
+        if (EntityManager.System<Content.Server.CMU14.Hijack.ShipHijackSystem>()
+                .TryGetShip(destination, out _) && destTransform.MapUid is { } destinationMap)
+        {
+            destCoords = new EntityCoordinates(destinationMap, _transform.ToMapCoordinates(destCoords).Position);
+            rotation = _transform.GetWorldRotation(destination);
+        }
         RemComp<Content.Server.CMU14.ForceOnForce.ForceOnForceLaunchComponent>(dropshipId.Value);
         var coordinated = TryGetForceOnForceLaunchWindow(computer, destination, hijack,
             out var opposingFaction, out var departureAt, out var newLaunchWindow);
@@ -1002,6 +1018,25 @@ public sealed partial class DropshipSystem : SharedDropshipSystem
 
         var travelState = new DropshipNavigationTravellingBuiState(ftl.State, ftl.StateTime, destinationName, departureName, doorLockStatus, computer.Comp.RemoteControl, computer.Comp.LaunchAlarmStatus);
         _ui.SetUiState(computer.Owner, DropshipNavigationUiKey.Key, travelState);
+    }
+
+    /// <summary>CMU14: return flights already inbound when a mainship jumps or starts falling.</summary>
+    public void DivertIncomingHijackFlights()
+    {
+        var hijack = EntityManager.System<Content.Shared.CMU14.Hijack.CMUShipHijackSystem>();
+        var query = EntityQueryEnumerator<DropshipComponent, FTLComponent>();
+        while (query.MoveNext(out var uid, out var dropship, out var ftl))
+        {
+            if (dropship.Destination is not { } destination || hijack.CanArrive(destination) ||
+                dropship.DepartureLocation is not { } departure || TerminatingOrDeleted(departure) ||
+                !hijack.CanArrive(departure))
+                continue;
+            dropship.Destination = departure;
+            ftl.TargetCoordinates = Transform(departure).Coordinates;
+            ftl.TargetAngle = Transform(departure).LocalRotation;
+            Dirty(uid, ftl);
+            Dirty(uid, dropship);
+        }
     }
 
     /// <summary>
@@ -1564,6 +1599,10 @@ public sealed partial class DropshipSystem : SharedDropshipSystem
                 Dirty(uid, dropship);
 
                 Audio.PlayGlobal(dropship.CrashSound, destinationFilter, true);
+                // CMU14: the ship hijack sequence owns its impact effects.
+                if (EntityManager.System<Content.Server.CMU14.Hijack.ShipHijackSystem>()
+                    .TryApplyDropshipImpact(uid, destination))
+                    continue;
                 _rmcFlammable.SpawnFireDiamond(
                     dropship.FireId,
                     destinationEntityCoords,
