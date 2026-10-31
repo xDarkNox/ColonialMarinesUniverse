@@ -7,11 +7,10 @@
          xmlns:userInterface="clr-namespace:Content.Client._RMC14.UserInterface"
          xmlns:profile="clr-namespace:Content.Client.Lobby.UI.ProfileEditorControls"
          HorizontalExpand="True">
-        <!-- CMU14 workspace: named anchors retain the existing field bindings. -->
         <!-- Left side -->
-        <BoxContainer Name="EditorColumn" Orientation="Vertical" Margin="10" HorizontalExpand="True">
+        <BoxContainer Orientation="Vertical" Margin="10 10 10 10" HorizontalExpand="True">
             <!-- Middle container -->
-            <BoxContainer Name="IdentityHeader" Orientation="Horizontal" SeparationOverride="10" HorizontalExpand="True">
+            <BoxContainer Orientation="Horizontal" SeparationOverride="10" HorizontalExpand="True">
                 <!-- Name box-->
                 <BoxContainer Orientation="Vertical">
                     <ui:HighlightedContainer>
@@ -363,7 +362,7 @@
                         </BoxContainer>
                     </ScrollContainer>
                 </BoxContainer>
-                <!-- cmu edit start: traits and markings sit between regulation appearance and insurgency -->
+                <!-- cmu edit start: traits and markings sit between regulation appearance and colony roles -->
                 <BoxContainer Orientation="Vertical" Margin="10">
                     <!-- Traits -->
                     <ScrollContainer VerticalExpand="True">
@@ -377,34 +376,14 @@
                     <!-- cmu edit end -->
                 </BoxContainer>
                 <!-- cmu edit end -->
-                <!-- CMU14: strip-level FoF annotation, overlaid on the tab header row -->
-                <Control VerticalExpand="True">
-                    <TabContainer Name="InsurgencyTabs" VerticalExpand="True" StyleClasses="CrtTabContainer">
-                        <BoxContainer Orientation="Vertical">
-                            <ScrollContainer VerticalExpand="True">
-                                <BoxContainer Name="InsurgencyGovernmentJobList" Orientation="Vertical" />
-                            </ScrollContainer>
-                        </BoxContainer>
-                        <BoxContainer Orientation="Vertical">
-                            <ScrollContainer VerticalExpand="True">
-                                <BoxContainer Name="InsurgencyInsurgentJobList" Orientation="Vertical" />
-                            </ScrollContainer>
-                        </BoxContainer>
-                        <BoxContainer Orientation="Vertical">
-                            <ScrollContainer VerticalExpand="True">
-                                <BoxContainer Name="InsurgencyCivilianJobList" Orientation="Vertical" />
-                            </ScrollContainer>
-                        </BoxContainer>
-                        <BoxContainer Orientation="Vertical" Margin="10">
-                            <ScrollContainer VerticalExpand="True">
-                                <BoxContainer Name="InsurgencyAntagList" Orientation="Vertical" />
-                            </ScrollContainer>
-                        </BoxContainer>
-                    </TabContainer>
-                    <Label Text="{Loc 'humanoid-profile-editor-fof-included-label'}"
-                           HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0 3 6 0"
-                           MouseFilter="Ignore" StyleClasses="CrtText" />
-                </Control>
+                <!-- CMU14: colony roles for colony-side gamemodes, replacing the retired insurgency tab -->
+                <BoxContainer Orientation="Vertical" Margin="10">
+                    <ScrollContainer VerticalExpand="True">
+                        <BoxContainer Name="ColonyRolesJobList" Orientation="Vertical" />
+                        <!-- CMU14: antag opt-ins for colony rounds; restores the surface lost with the insurgency tab -->
+                        <BoxContainer Name="ColonyRolesAntagList" Orientation="Vertical" />
+                    </ScrollContainer>
+                </BoxContainer>
                 <BoxContainer Orientation="Vertical">
                     <TabContainer Name="ColonyFallTabs" VerticalExpand="True" StyleClasses="CrtTabContainer">
                         <BoxContainer Orientation="Vertical">
@@ -478,8 +457,8 @@
                 </BoxContainer>
             </TabContainer>
         </BoxContainer>
-        <!-- CMU14: named preview anchor for the responsive workspace. -->
-        <BoxContainer Name="PreviewColumn" Orientation="Vertical"
+        <!-- Right side -->
+        <BoxContainer Orientation="Vertical"
                       VerticalExpand="True"
                       VerticalAlignment="Center"
                       MinWidth="300"

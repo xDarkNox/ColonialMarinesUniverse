@@ -16,8 +16,10 @@ using Content.Shared.Ghost.Components;
 using Content.Shared.Ghost.Roles.Raffles;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Humanoid.Prototypes;
+using Content.Shared.Inventory;
 using Content.Shared.Interaction;
 using Content.Shared.Popups;
+using Content.Shared.Radio.Components;
 using Robust.Shared.Audio.Systems;
 using Robust.Shared.EntitySerialization;
 using Robust.Shared.EntitySerialization.Systems;
@@ -39,6 +41,7 @@ public sealed partial class YautjaHuntConsoleSystem : EntitySystem
     [Dependency] private SharedDoAfterSystem _doAfter = default!;
     [Dependency] private SharedDoorSystem _door = default!;
     [Dependency] private SharedHandsSystem _hands = default!;
+    [Dependency] private InventorySystem _inventory = default!;
     [Dependency] private SharedPopupSystem _popup = default!;
     [Dependency] private SharedTransformSystem _transform = default!;
     [Dependency] private MapLoaderSystem _mapLoader = default!;
@@ -335,7 +338,7 @@ public sealed partial class YautjaHuntConsoleSystem : EntitySystem
         if (blooding)
         {
             if (!TryGetDestination(destinationKind, ent.Comp.DestinationId, out var deployDestination) ||
-                !TryGetSpawnCoordinates(spawnKind, destinationKind, ent.Comp.DestinationId, out coordinates, out _, false))
+                !TryGetSpawnCoordinates(spawnKind, destinationKind, ent.Comp.DestinationId, out coordinates, out _, true))
             {
                 var unavailable = blooding
                     ? "cmu-yautja-hunt-console-blooding-unavailable"
@@ -461,7 +464,9 @@ public sealed partial class YautjaHuntConsoleSystem : EntitySystem
             if (!_prototype.HasIndex<RandomHumanoidSettingsPrototype>(settings))
                 return null;
 
-            return _randomHumanoid.SpawnRandomHumanoid(settings, _transform.ToCoordinates(coordinates), string.Empty);
+            var humanoid = _randomHumanoid.SpawnRandomHumanoid(settings, _transform.ToCoordinates(coordinates), string.Empty);
+            StripHeadset(humanoid);
+            return humanoid;
         }
 
         if (entry.EntityPrototype is { } prototype)
@@ -469,10 +474,20 @@ public sealed partial class YautjaHuntConsoleSystem : EntitySystem
             if (!_prototype.HasIndex<EntityPrototype>(prototype))
                 return null;
 
-            return Spawn(prototype, coordinates);
+            var spawned = Spawn(prototype, coordinates);
+            StripHeadset(spawned);
+            return spawned;
         }
 
         return null;
+    }
+
+    // The preserve is its own game: prey may keep handheld shortwaves but never a worn headset reaching round comms.
+    private void StripHeadset(EntityUid prey)
+    {
+        if (_inventory.TryGetSlotEntity(prey, "ears", out var worn)
+            && HasComp<HeadsetComponent>(worn))
+            Del(worn.Value);
     }
 
     private YautjaHuntSpawnEntry? PickSpawnEntry(List<YautjaHuntSpawnEntry> entries)
@@ -689,6 +704,40 @@ public sealed partial class YautjaHuntConsoleSystem : EntitySystem
                component.DoAfters.Values.Any(active => !active.Cancelled && !active.Completed);
     }
 
+    private readonly List<EntityUid> _spawnCandidates = new();
+    private readonly List<EntityUid> _unusedSpawnCandidates = new();
+    private readonly List<KeyValuePair<EntityUid, TimeSpan>> _recentlyUsedSpawnPoints = new();
+
+    private static readonly TimeSpan SpawnPointReuseDelay = TimeSpan.FromSeconds(5);
+
+
+    private bool TryPickSpawnCandidate(out MapCoordinates coordinates)
+    {
+        if (_spawnCandidates.Count == 0)
+        {
+            coordinates = default;
+            return false;
+        }
+
+        var now = _timing.CurTime;
+        _recentlyUsedSpawnPoints.RemoveAll(entry => now - entry.Value >= SpawnPointReuseDelay);
+
+        _unusedSpawnCandidates.Clear();
+        foreach (var candidate in _spawnCandidates)
+        {
+            if (!_recentlyUsedSpawnPoints.Any(entry => entry.Key == candidate))
+                _unusedSpawnCandidates.Add(candidate);
+        }
+
+        var chosen = _random.Pick(_unusedSpawnCandidates.Count > 0 ? _unusedSpawnCandidates : _spawnCandidates);
+        _recentlyUsedSpawnPoints.Add(new KeyValuePair<EntityUid, TimeSpan>(chosen, now));
+        _spawnCandidates.Clear();
+        _unusedSpawnCandidates.Clear();
+
+        coordinates = _transform.GetMapCoordinates(chosen);
+        return true;
+    }
+
     private bool TryGetSpawnCoordinates(
         YautjaHuntSpawnKind spawnKind,
         YautjaHuntTeleporterKind destinationKind,
@@ -697,17 +746,48 @@ public sealed partial class YautjaHuntConsoleSystem : EntitySystem
         out EntityUid? destination,
         bool allowDestinationFallback = true)
     {
+        // CMU14: spawn points that do not name a destination used to match *any* request, and the loop returned the
+        // first hit - so on a map that also places an untagged youngblood point at its hunting ground (jungle_moon,
+        // desert_moon_caves), blooding youngbloods spawned at the preserve instead of aboard the ship, depending on
+        // entity order. Look for an exact destination match first and only accept untagged points afterwards, which
+        // keeps this working for every map without naming coordinates.
+        _spawnCandidates.Clear();
         var query = EntityQueryEnumerator<YautjaHuntSpawnPointComponent>();
         while (query.MoveNext(out var uid, out var component))
         {
             if (Deleted(uid) ||
                 component.Kind != spawnKind ||
+                component.DestinationId == null ||
                 !SpawnDestinationMatches(component.DestinationId, destinationId))
             {
                 continue;
             }
 
-            coordinates = _transform.GetMapCoordinates(uid);
+            _spawnCandidates.Add(uid);
+        }
+
+        if (TryPickSpawnCandidate(out coordinates))
+        {
+            destination = null;
+            return true;
+        }
+
+        _spawnCandidates.Clear();
+        var fallbackQuery = EntityQueryEnumerator<YautjaHuntSpawnPointComponent>();
+        while (fallbackQuery.MoveNext(out var uid, out var component))
+        {
+            if (Deleted(uid) ||
+                component.Kind != spawnKind ||
+                component.DestinationId != null)
+            {
+                continue;
+            }
+
+            _spawnCandidates.Add(uid);
+        }
+
+        if (TryPickSpawnCandidate(out coordinates))
+        {
             destination = null;
             return true;
         }
