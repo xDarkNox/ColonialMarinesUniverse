@@ -5,6 +5,7 @@ using Content.Client.Lobby.UI.Loadouts;
 using Content.Client.Lobby.UI.Roles;
 using Content.Client.Stylesheets;
 using Content.Shared.CMU14.Marines.Roles.Chevrons;
+using Content.Shared.CMU14.Round; // CMU14
 using Content.Shared.CMU14.Roles.Ranks;
 using Content.Shared._RMC14.Marines.Roles.Ranks;
 using Content.Shared._RMC14.Prototypes;
@@ -38,6 +39,10 @@ public sealed partial class HumanoidProfileEditor
     private readonly List<(string Gamemode, string JobId, RequirementsSelector Selector)> _jobPriorities = new();
     private readonly List<(string Gamemode, string Id, RequirementsSelector Selector)> _antagPreferences = new();
     private readonly Dictionary<string, BoxContainer> _jobCategories;
+
+    // CMU14: FoF only assigns the AddColonist roster. Null means the prototype
+    // was unreadable and the colony tab falls back to every colonist role.
+    private HashSet<ProtoId<JobPrototype>>? _fofColonyJobs;
 
     private void UpdateJobPriorities()
     {
@@ -125,6 +130,7 @@ public sealed partial class HumanoidProfileEditor
 
         _jobCategories.Clear();
         _jobPriorities.Clear();
+        LoadFoFColonyJobs(); // CMU14
 
         var departments = _prototypeManager.EnumeratePrototypes<DepartmentPrototype>()
             .Where(department => !department.EditorHidden)
@@ -175,6 +181,22 @@ public sealed partial class HumanoidProfileEditor
             CrtLobbyTheme.Apply(list);
 
         UpdateJobPriorities();
+    }
+
+    // CMU14 method: FoF colony whitelist read from the AddColonist rule so the tab follows the YAML.
+    private void LoadFoFColonyJobs()
+    {
+        _fofColonyJobs = null;
+        if (!_prototypeManager.TryIndex<EntityPrototype>("AddColonist", out var proto)
+            || !proto.Components.TryGetValue(_componentFactory.GetComponentName<AddColonistRuleComponent>(), out var entry)
+            || entry.Component is not AddColonistRuleComponent rule)
+        {
+            _sawmill.Warning("AddColonist rule prototype unreadable, FoF colony tab shows every colonist role");
+            return;
+        }
+
+        _fofColonyJobs = new HashSet<ProtoId<JobPrototype>>(rule.Jobs.Keys);
+        _fofColonyJobs.UnionWith(rule.RandomJobs);
     }
 
     private void AddJobSelector(
@@ -322,7 +344,10 @@ public sealed partial class HumanoidProfileEditor
     {
         // CMU14: shared FoF role priorities.
         yield return FoFJobList;
-        yield return ColonyRolesJobList;
+        yield return FoFColonyJobList;
+        yield return InsurgencyGovernmentJobList;
+        yield return InsurgencyInsurgentJobList;
+        yield return InsurgencyCivilianJobList;
         yield return ColonyCivilianJobList;
         yield return ColonyThreatJobList;
         yield return DistressGovernmentJobList;
@@ -388,11 +413,16 @@ public sealed partial class HumanoidProfileEditor
         JobPrototype job,
         string departmentName)
     {
-        // CMU14: one govfor guard feeds the FoF and Distress Signal military lists.
+        // CMU14: one govfor guard feeds the FoF, Insurgency and Distress Signal military lists.
         if (department.Faction == "govfor")
         {
             var (key, title) = GetMilitaryJobSegment(job);
             yield return (FoFJobList, GamemodeForceOnForce, $"fof-{key}", title);
+            yield return (
+                InsurgencyGovernmentJobList,
+                GamemodeInsurgency,
+                $"insurgency-govfor-{key}",
+                Loc.GetString("humanoid-profile-editor-government-forces-label", ("segmentTitle", title)));
             yield return (
                 DistressGovernmentJobList,
                 GamemodeDistressSignal,
@@ -407,9 +437,9 @@ public sealed partial class HumanoidProfileEditor
         if (IsInsurgencyDepartment(department))
         {
             yield return (
-                ColonyRolesJobList,
+                InsurgencyInsurgentJobList,
                 GamemodeInsurgency,
-                $"colony-roles-{department.ID}",
+                $"insurgency-jobs-{department.ID}",
                 department.CustomName ?? Loc.GetString(
                     "humanoid-profile-editor-department-jobs-label",
                     ("departmentName", departmentName)));
@@ -422,10 +452,17 @@ public sealed partial class HumanoidProfileEditor
                 "humanoid-profile-editor-department-jobs-label",
                 ("departmentName", departmentName));
             yield return (
-                ColonyRolesJobList,
+                InsurgencyCivilianJobList,
                 GamemodeInsurgency,
-                $"colony-roles-{department.ID}",
+                $"insurgency-civilian-{department.ID}",
                 title);
+            // CMU14: FoF only assigns the AddColonist roster, hide roles it can never grant.
+            if (_fofColonyJobs == null || _fofColonyJobs.Contains(job.ID))
+                yield return (
+                    FoFColonyJobList,
+                    GamemodeForceOnForce,
+                    $"fof-colony-{department.ID}",
+                    title);
             yield return (
                 ColonyCivilianJobList,
                 GamemodeColonyFall,
@@ -560,12 +597,12 @@ public sealed partial class HumanoidProfileEditor
 
     public void RefreshAntags()
     {
-        ColonyRolesAntagList.ReleaseChildren();
+        InsurgencyAntagList.ReleaseChildren();
         ColonyAntagList.ReleaseChildren();
         DistressAntagList.ReleaseChildren();
         _antagPreferences.Clear();
 
-        PopulateAntagPreferences(ColonyRolesAntagList, GamemodeInsurgency);
+        PopulateAntagPreferences(InsurgencyAntagList, GamemodeInsurgency);
         PopulateAntagPreferences(ColonyAntagList, GamemodeColonyFall);
         PopulateAntagPreferences(DistressAntagList, GamemodeDistressSignal);
     }
