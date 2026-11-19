@@ -155,6 +155,8 @@
         amount: 5
       - id: CMUCircuitboardRecharger
         amount: 4
+      - id: CMUCircuitboardChemicalRecipeMachine
+        amount: 1
 #      - id: CMCircuitboardDispenserBooze
 #        amount: 2
 #      - id: CMCircuitboardDispenserSoda
@@ -189,11 +191,11 @@
         amount: 6
     - name: Power
       entries:
-      - id: CableHVStack
+      - id: CMUCableThinHVStack
         amount: 6
-      - id: CableMVStack
+      - id: CMUCableThinMVStack
         amount: 6
-      - id: CableApcStack
+      - id: CMUCableThinLVStack
         amount: 6
       - id: CMAPCElectronics
         amount: 4
@@ -218,6 +220,8 @@
       - id: CMSMESMachineCircuitboard
         amount: 1
       - id: CMUCircuitboardRecharger
+        amount: 1
+      - id: CMUCircuitboardChemicalRecipeMachine
         amount: 1
       - id: CMUCrystallizerMachineCircuitboard
         amount: 2

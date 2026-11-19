@@ -550,6 +550,14 @@
     sprite: _RMC14/Structures/Machines/VendingMachines/ColMarTech/clothing.rsi
   - type: CMAutomatedVendor
     sections:
+    - name: cmu-vendor-advanced-gunship-crew-hud
+      choices: { CMUPlatoonAirCrewGunshipHUD: 1 }
+      entries:
+      - id: CMUVisorGunshipCrewAdvanced
+    - name: cmu-vendor-basic-gunship-crew-huds
+      entries:
+      - id: CMUVisorGunshipCrew
+        amount: 5
     - name: Fatigues
       choices: { CMUPlatoonAirCrewFatigues: 1 }
       entries:
@@ -1172,6 +1180,7 @@
       entries:
       - id: AU14CaseSentry
       - id: AU14CaseSentryFlamer
+      - id: CMUConstructionRobotKit
       - id: RMCM271A2BruteLauncherRigFilled
     - name: Sentry Gun Upgrade Kit
       entries:
@@ -1424,6 +1433,8 @@
         amount: 40
       - id: AU14MagazineRifleAG80
         amount: 200
+      - id: CMU14MagazineRifleAG80Rubber
+        amount: 20
       - id: AU14MagazineRifleAG80AP
         amount: 10
       - id: AU14MagazineRifleAG80Ext
@@ -1509,6 +1520,8 @@
       - id: RuMCBoxBulletsRifleType71
         amount: 5
       - id: RuMCBoxBulletsPistol762x25mm
+        amount: 5
+      - id: CMU14BoxBulletsRifleAG80Rubber
         amount: 5
       #RuMCBoxBulletsRifleAG80AP
       #RuMCBoxBulletsRifle10x24mmAP
